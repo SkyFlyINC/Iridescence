@@ -36,7 +36,7 @@ func main() {
 	fmt.Println("/\\/ /_ | |  | | (_| |  __\\__ \\ (__  __/ | | | (__  __/")
 	fmt.Println("\\____/ |_|  |_|\\__,_|\\___|___/\\___\\___|_| |_|\\___\\___|")
 	fmt.Println(reset)
-	fmt.Println("     - A Stable and Highly Available Chat Server -")
+	fmt.Println("     - A Stable and Highly Available Correspond Server -")
 	fmt.Println("                     VERSION:", _VERSION)
 	logger.SetLogLevel(logger.LogLevel(confData.LogLevel))
 
