@@ -65,6 +65,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
+	defer conn.Close()
 	if err != nil {
 		logger.Error("WebSocket upgrade failed:", err)
 		return
