@@ -31,7 +31,7 @@ jobs:
           sleep 5
           if ! pgrep LiteChatServer > /dev/null; then
             echo "LiteChatServer failed to start."
-            screen -S LiteChatServerSession -X stuff "^C"
+            screen -U -S LiteChatServerSession -X stuff "^C"
             exit 1
           fi
           echo "LiteChatServer started successfully."
