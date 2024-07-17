@@ -95,7 +95,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		case configData.Commands.Login:
 			var res jsonprovider.LoginResponse
 			var p jsonprovider.LoginRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &p)
+			jsonprovider.ParseJSON(pre.Content, &p)
 			logger.Debug(p)
 
 			userID = p.Userid
@@ -158,7 +158,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		case configData.Commands.Register:
 			var username, password string
 			var user jsonprovider.SignUpRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &user)
+			jsonprovider.ParseJSON(pre.Content, &user)
 			username = user.UserName
 			password = user.Password
 
@@ -254,7 +254,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		case configData.Commands.CheckUserOnlineState:
 			// 解析请求
 			var onlineStateRequest jsonprovider.CheckUserOnlineStateRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &onlineStateRequest)
+			jsonprovider.ParseJSON(pre.Content, &onlineStateRequest)
 
 			// 检查用户在线状态
 			ClientsLock.Lock()
@@ -281,7 +281,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			var state int
 			//获取基本信息
 			var receivedPack jsonprovider.SendMessageRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &receivedPack)
+			jsonprovider.ParseJSON(pre.Content, &receivedPack)
 			recipientID := receivedPack.TargetID
 			messageContent := receivedPack.MessageBody
 			requestMessageID := receivedPack.RequestID
@@ -326,7 +326,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 		case "sendGroupMessage":
 			var req jsonprovider.SendGroupMessageRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &req)
+			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 保存消息到数据库
 			timeStamp := int(time.Now().UnixNano())
@@ -376,7 +376,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 		case "addFriend":
 			var req jsonprovider.AddFriendRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &req)
+			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 获取用户的朋友列表
 			friendList := Clients[userID].UserFriendList
@@ -415,7 +415,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		case "deleteFriend":
 			var req jsonprovider.DeleteFriendRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &req)
+			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 获取用户的朋友列表
 			friendList := Clients[userID].UserFriendList
@@ -461,7 +461,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		case "createGroup":
 			var req jsonprovider.CreateGroupRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &req)
+			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 在数据库中创建新的群聊
 			res, err := db.Exec("INSERT INTO groupdatatable (groupName, groupExplaination, groupMaster) VALUES (?, ?, ?)", req.GroupName, req.GroupExplaination, userID)
@@ -501,7 +501,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 		case "breakGroup":
 			var req jsonprovider.BreakGroupRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &req)
+			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 在数据库中删除群聊
 			_, err := db.Exec("DELETE FROM groupdatatable WHERE groupID = ? AND groupMaster = ?", req.GroupID, userID)
@@ -527,7 +527,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		case "getUserData":
 			var req jsonprovider.GetUserDataRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &req)
+			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 从数据库中获取用户数据
 			res, err := dbUtils.GetUserFromDB(userID)
@@ -551,7 +551,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		case "getMessagesWithUser":
 			var req jsonprovider.GetMessagesWithUserRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &req)
+			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 从数据库中查询聊天记录
 			rows, err := db.Query("SELECT messageID, senderID, receiverID, time, messageBody, messageType FROM messages WHERE ((senderID = ? AND receiverID = ?) OR (senderID = ? AND receiverID = ?)) AND time BETWEEN ? AND ?", userID, req.OtherUserID, req.OtherUserID, userID, req.StartTime, req.EndTime)
@@ -592,7 +592,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		case "changeAvatar":
 			var req jsonprovider.ChangeAvatarRequest
-			jsonprovider.ParseJSON(pre.Content.(json.RawMessage), &req)
+			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 更新用户结构体
 			Clients[userID].UserAvatar = req.NewAvatar
