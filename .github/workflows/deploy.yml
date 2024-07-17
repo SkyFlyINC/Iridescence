@@ -27,10 +27,11 @@ jobs:
           ${{ secrets.DEPLOY_CONFIG }}
           EOF
           go build -o LiteChatServer
-          nohup ./LiteChatServer > server.log 2>&1 &
+          screen -dmS LiteChatServerSession bash -c './LiteChatServer > server.log 2>&1'
           sleep 5
           if ! pgrep LiteChatServer > /dev/null; then
             echo "LiteChatServer failed to start."
+            screen -S LiteChatServerSession -X stuff "^C"
             cat server.log
             exit 1
           fi
