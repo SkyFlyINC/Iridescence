@@ -10,7 +10,6 @@ import (
 	jsonprovider "jsonProvider"
 	"logger"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -165,6 +164,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			var resString string
 			var state bool = false
+			var userID int64
 
 			if username == "" || password == "" {
 				resString = "缺少参数"
@@ -187,24 +187,24 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 					logger.Debug("注册时生成盐:", salt)
 
 					// 将用户数据存入数据库
-					userID, err := dbUtils.SaveUserToDB(username, hashedPassword, salt)
+					userID, err = dbUtils.SaveUserToDB(username, hashedPassword, salt)
 					if err != nil {
 						logger.Error("用户注册时出现错误:", err)
 						resString = "保存信息时出错"
 					} else {
 						// 返回用户唯一的自增ID
-						w.WriteHeader(http.StatusOK)
-						resString = strconv.FormatInt(userID, 10)
+						resString = "注册成功"
 						state = true
 					}
 				}
 			}
 
-			res := jsonprovider.LoginResponse{
+			res := jsonprovider.SignUpResponse{
 				State:   state,
+				Userid:  int(userID),
 				Message: resString,
 			}
-			message := jsonprovider.StringifyJSON(res)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.Register, &res)
 			err = conn.WriteMessage(websocket.TextMessage, message)
 			if err != nil {
 				logger.Error("Failed to send message:", err)

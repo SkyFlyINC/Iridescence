@@ -30,8 +30,9 @@ type SignUpRequest struct {
 }
 
 type SignUpResponse struct {
-	State  string `json:"state"`
-	Userid string `json:"userId"`
+	State   bool   `json:"state"`
+	Userid  int    `json:"userId"`
+	Message string `json:"message"`
 }
 type SendMessageRequest struct {
 	TargetID         int    `json:"targetId"`    //消息接收人
