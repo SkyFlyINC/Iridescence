@@ -23,7 +23,9 @@ jobs:
           set -e
           fuser -k 8080/tcp || true
           cd /home/${{ secrets.REMOTE_USER }}/
-          echo "${{ secrets.DEPLOY_CONFIG }}" | jq '.' > config.json
+          cat > ./config.json << EOF
+          ${{ secrets.DEPLOY_CONFIG }}
+          EOF
           go build -o LiteChatServer
           nohup ./LiteChatServer > server.log 2>&1 &
           sleep 5
