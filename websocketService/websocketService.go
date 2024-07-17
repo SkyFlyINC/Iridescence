@@ -230,6 +230,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			<-timer.C // 阻塞直到定时器触发
 			if useHeartPack {
 				connState = false
+				conn.Close()
 			}
 		}()
 
