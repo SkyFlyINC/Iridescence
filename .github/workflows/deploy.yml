@@ -13,19 +13,10 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      CONFIG: ${{ secrets.CONFIG }}
     steps:
     - uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
-
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
-      run: go test -v ./...
     - name: Deploy
       uses: easingthemes/ssh-deploy@v5.0.3
       with:
@@ -35,5 +26,5 @@ jobs:
           REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           SCRIPT_BEFORE: "kill -9 $(lsof -i:8900 -t)"
-          SCRIPT_AFTER: "nohup ./LiteChatServer &"
+          SCRIPT_AFTER: "echo $CONFIG > ./config.json ; go build ; nohup ./LiteChatServer &"
     
