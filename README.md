@@ -53,7 +53,7 @@ go build .
   "DataBaseSettings": {
     "address": "localhost:3306",
     "account": "root",
-    "password": "Xx20060902zcs"
+    "password": "password"
   },
   "Rotes": {
     "registerRote": "/register",
