@@ -72,6 +72,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	Logined := false
 	var userID int
+	var useHeartPack bool = true
 	// 处理WebSocket消息
 	for !Logined {
 		_, message, err := conn.ReadMessage()
@@ -100,6 +101,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			logger.Debug(p)
 
 			userID = p.Userid
+			useHeartPack = p.UseArtificialHeartPack
 
 			passwordHash, passwordSalt, err := dbUtils.GetDBPasswordHash(userID)
 			if err != nil {
@@ -226,7 +228,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		go func() {
 			<-timer.C // 阻塞直到定时器触发
-			connState = false
+			if useHeartPack {
+				connState = false
+			}
 		}()
 
 		// 读取消息
