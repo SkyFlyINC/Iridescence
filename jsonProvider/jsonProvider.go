@@ -44,9 +44,14 @@ func SdandarlizeJSON_byte(command string, content interface{}) []byte {
 }
 
 func SdandarlizeJSON(command string, content interface{}) interface{} {
+	contentBytes, err := json.Marshal(content)
+	if err != nil {
+		logger.Error("Error marshaling content: %v", err)
+		return nil
+	}
 	var res = StandardJSONPack{
 		Command: command,
-		Content: content.(json.RawMessage),
+		Content: contentBytes,
 	}
 	logger.Debug("服务器回发包：", res)
 	return res
