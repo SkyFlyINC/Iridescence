@@ -27,7 +27,7 @@ jobs:
           ${{ secrets.DEPLOY_CONFIG }}
           EOF
           go build -o LiteChatServer
-          screen -dmS LiteChatServerSession bash -c './LiteChatServer > server.log 2>&1'
+          screen -dmS LiteChatServerSession bash -c './LiteChatServer'
           sleep 5
           if ! pgrep LiteChatServer > /dev/null; then
             echo "LiteChatServer failed to start."
