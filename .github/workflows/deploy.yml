@@ -32,7 +32,6 @@ jobs:
           if ! pgrep LiteChatServer > /dev/null; then
             echo "LiteChatServer failed to start."
             screen -S LiteChatServerSession -X stuff "^C"
-            cat server.log
             exit 1
           fi
           echo "LiteChatServer started successfully."
