@@ -1,6 +1,7 @@
 package jsonprovider
 
 import (
+	"encoding/json"
 	"io"
 	"logger"
 
@@ -45,7 +46,7 @@ func SdandarlizeJSON_byte(command string, content interface{}) []byte {
 func SdandarlizeJSON(command string, content interface{}) interface{} {
 	var res = StandardJSONPack{
 		Command: command,
-		Content: content,
+		Content: content.(json.RawMessage),
 	}
 	logger.Debug("服务器回发包：", res)
 	return res

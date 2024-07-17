@@ -6,8 +6,8 @@ import (
 
 // StandardJSONPack 根数据包结构体，仅用于websocket
 type StandardJSONPack struct {
-	Command string      `json:"command"`
-	Content interface{} `json:"content"`
+	Command string          `json:"command"`
+	Content json.RawMessage `json:"content"`
 }
 
 type HeartBeatPack struct {
