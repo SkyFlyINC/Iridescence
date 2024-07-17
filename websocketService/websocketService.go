@@ -84,6 +84,15 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		jsonprovider.ParseJSON(message, &pre)
 
 		switch pre.Command {
+		case configData.Commands.Heart:
+			responsePack := jsonprovider.SdandarlizeJSON_byte(configData.Commands.Heart, &jsonprovider.HeartBeatPack{
+				TimeStamp: time.Now().Local().UTC().Nanosecond(),
+			})
+			// 发送响应给请求者
+			err := conn.WriteMessage(websocket.TextMessage, responsePack)
+			if err != nil {
+				logger.Error("心跳包回发错误:", err)
+			}
 		case configData.Commands.Login:
 			var res jsonprovider.LoginResponse
 			var p jsonprovider.LoginRequest
