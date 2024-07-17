@@ -1,6 +1,7 @@
 package httpService
 
 import (
+	"Utils"
 	"config"
 	"dbUtils"
 	"encoding/json"
@@ -10,9 +11,7 @@ import (
 	jsonprovider "jsonProvider"
 	"logger"
 	"net/http"
-	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -90,7 +89,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if utf8RuneCountInString(username) > 10 {
+	if Utils.Utf8RuneCountInString(username) > 10 {
 		w.WriteHeader(http.StatusBadRequest)
 		fmtPrintF(w, "Username cannot exceed 10 characters")
 		return
@@ -102,7 +101,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !containsLetterAndNumber(password) || !containsLowerAndUpperCase(password) {
+	if !Utils.ContainsLetterAndNumber(password) || !Utils.ContainsLowerAndUpperCase(password) {
 		w.WriteHeader(http.StatusBadRequest)
 		fmtPrintF(w, "Password must contain both letters and numbers, and have both lower and uppercase")
 		return
@@ -413,22 +412,6 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func utf8RuneCountInString(s string) int {
-	return len([]rune(s))
-}
-
-func containsLetterAndNumber(s string) bool {
-	match, _ := regexp.MatchString(`[a-zA-Z]+`, s)
-	if !match {
-		return false
-	}
-	match, _ = regexp.MatchString(`[0-9]+`, s)
-	return match
-}
-
-func containsLowerAndUpperCase(s string) bool {
-	return strings.ToLower(s) != s && strings.ToUpper(s) != s
-}
 func CheckTokenExpiry(token string) bool {
 	user, ok := Tokens[token]
 	if !ok {

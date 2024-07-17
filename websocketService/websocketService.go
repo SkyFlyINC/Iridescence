@@ -1,6 +1,7 @@
 package websocketService
 
 import (
+	"Utils"
 	"config"
 	"database/sql"
 	"dbUtils"
@@ -9,6 +10,7 @@ import (
 	jsonprovider "jsonProvider"
 	"logger"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -72,70 +74,133 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	var userID int
 	// 处理WebSocket消息
 	for !Logined {
-
-		// 用户登录过程
-		// 在此处获取用户ID，并保存到映射关系中
-		var res jsonprovider.LoginResponse
-		var p jsonprovider.LoginRequest
-		err = conn.ReadJSON(&p)
-		logger.Debug(p)
+		_, message, err := conn.ReadMessage()
 		if err != nil {
-			logger.Error("用户登录时读取消息失败", err)
+			logger.Error("读取消息失败:", err)
+			continue
 		}
-		userID = p.Userid
 
-		passwordHash, passwordSalt, err := dbUtils.GetDBPasswordHash(userID)
-		if err != nil {
-			logger.Error("读取数据库密码哈希值失败", err)
-		}
-		logger.Debug("登录时读取盐:", passwordSalt)
-		tryingPasswordHash := hashUtils.HashPassword(p.Password, passwordSalt)
-		logger.Debug("尝试哈希", tryingPasswordHash, "实际哈希", passwordHash)
-		if tryingPasswordHash == passwordHash {
-			// 从数据库中获取用户信息
-			var username, userAvatar, userNote string
-			var userPermission uint
-			var userFriendList json.RawMessage
-			err := db.QueryRow("SELECT userName, userAvatar, userNote, userPermission, userFriendList FROM userdatatable WHERE userID = ?", userID).Scan(&username, &userAvatar, &userNote, &userPermission, &userFriendList)
+		var pre jsonprovider.StandardJSONPack
+		jsonprovider.ParseJSON(message, &pre)
+
+		switch pre.Command {
+		case configData.Commands.Login:
+			var res jsonprovider.LoginResponse
+			var p jsonprovider.LoginRequest
+			jsonprovider.ParseJSON(message, &p)
+			logger.Debug(p)
+
+			userID = p.Userid
+
+			passwordHash, passwordSalt, err := dbUtils.GetDBPasswordHash(userID)
 			if err != nil {
-				logger.Error("获取用户数据失败:", err)
-				return
+				logger.Error("读取数据库密码哈希值失败", err)
+				continue
+			}
+			logger.Debug("登录时读取盐:", passwordSalt)
+			tryingPasswordHash := hashUtils.HashPassword(p.Password, passwordSalt)
+			logger.Debug("尝试哈希", tryingPasswordHash, "实际哈希", passwordHash)
+			if tryingPasswordHash == passwordHash {
+				// 从数据库中获取用户信息
+				var username, userAvatar, userNote string
+				var userPermission uint
+				var userFriendList json.RawMessage
+				err := db.QueryRow("SELECT userName, userAvatar, userNote, userPermission, userFriendList FROM userdatatable WHERE userID = ?", userID).Scan(&username, &userAvatar, &userNote, &userPermission, &userFriendList)
+				if err != nil {
+					logger.Error("获取用户数据失败:", err)
+					continue
+				}
+
+				// 创建新的User结构体
+				user := &User{
+					UserId:         userID,
+					Conn:           conn,
+					UserName:       username,
+					UserAvatar:     userAvatar,
+					UserNote:       userNote,
+					UserPermission: userPermission,
+					UserFriendList: userFriendList,
+				}
+
+				// 保存到clients map中
+				ClientsLock.Lock()
+				Clients[userID] = user
+				ClientsLock.Unlock()
+
+				res = jsonprovider.LoginResponse{
+					State:    true,
+					Message:  "登录成功",
+					UserData: jsonprovider.User(*user),
+				}
+				logger.Debug("用户", userID, "登录成功")
+				Logined = true
+			} else {
+				res = jsonprovider.LoginResponse{
+					State:   false,
+					Message: "登录失败",
+				}
+			}
+			message := jsonprovider.StringifyJSON(res)
+			err = conn.WriteMessage(websocket.TextMessage, message)
+			if err != nil {
+				logger.Error("Failed to send message:", err)
+				// 处理发送消息失败的情况
 			}
 
-			// 创建新的User结构体
-			user := &User{
-				UserId:         userID,
-				Conn:           conn,
-				UserName:       username,
-				UserAvatar:     userAvatar,
-				UserNote:       userNote,
-				UserPermission: userPermission,
-				UserFriendList: userFriendList,
+		case configData.Commands.Register:
+			var username, password string
+			var user jsonprovider.SignUpRequest
+			jsonprovider.ParseJSON(message, &user)
+			username = user.UserName
+			password = user.Password
+
+			var resString string
+			var state bool = false
+
+			if username == "" || password == "" {
+				resString = "缺少参数"
+			} else if Utils.Utf8RuneCountInString(username) > 10 {
+				resString = "用户名不能超过10个字符"
+			} else if len(password) < 8 || len(password) > 100 {
+				resString = "密码必须在8-100个字符之间"
+			} else if !Utils.ContainsLetterAndNumber(password) || !Utils.ContainsLowerAndUpperCase(password) {
+				resString = "密码必须包含字母和数字，并且包含大小写字母"
+			} else {
+				// 进行注册逻辑的处理
+				// 生成盐
+				salt, err := hashUtils.GenerateSalt()
+				if err != nil {
+					logger.Error("密码加盐时出错:", err)
+					resString = "密码加盐时出错"
+				} else {
+					// 哈希密码
+					hashedPassword := hashUtils.HashPassword(password, salt)
+					logger.Debug("注册时生成盐:", salt)
+
+					// 将用户数据存入数据库
+					userID, err := dbUtils.SaveUserToDB(username, hashedPassword, salt)
+					if err != nil {
+						logger.Error("用户注册时出现错误:", err)
+						resString = "保存信息时出错"
+					} else {
+						// 返回用户唯一的自增ID
+						w.WriteHeader(http.StatusOK)
+						resString = strconv.FormatInt(userID, 10)
+						state = true
+					}
+				}
 			}
 
-			// 保存到clients map中
-			ClientsLock.Lock()
-			Clients[userID] = user
-			ClientsLock.Unlock()
-
-			res = jsonprovider.LoginResponse{
-				State:    true,
-				Message:  "登录成功",
-				UserData: jsonprovider.User(*user),
+			res := jsonprovider.LoginResponse{
+				State:   state,
+				Message: resString,
 			}
-			logger.Debug("用户", userID, "登录成功")
-			Logined = true
-		} else {
-			res = jsonprovider.LoginResponse{
-				State:   false,
-				Message: "登录失败",
+			message := jsonprovider.StringifyJSON(res)
+			err = conn.WriteMessage(websocket.TextMessage, message)
+			if err != nil {
+				logger.Error("Failed to send message:", err)
+				// 处理发送消息失败的情况
 			}
-		}
-		message := jsonprovider.StringifyJSON(res)
-		err = conn.WriteMessage(websocket.TextMessage, message)
-		if err != nil {
-			logger.Error("Failed to send message:", err)
-			// 处理发送消息失败的情况
 		}
 	}
 
@@ -168,7 +233,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		jsonprovider.ParseJSON(message, &pre)
 		switch pre.Command {
 		case configData.Commands.Heart:
-			responsePack := jsonprovider.StringifyJSON(&jsonprovider.HeartBeatPack{
+			responsePack := jsonprovider.SdandarlizeJSON_byte(configData.Commands.Heart, &jsonprovider.HeartBeatPack{
 				TimeStamp: time.Now().Local().UTC().Nanosecond(),
 			})
 			// 发送响应给请求者
@@ -195,7 +260,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 序列化响应为JSON
-			responseJSON := jsonprovider.StringifyJSON(onlineStateResponse)
+			responseJSON := jsonprovider.SdandarlizeJSON_byte(configData.Commands.CheckUserOnlineState, onlineStateResponse)
 
 			// 发送响应给请求者
 			err := conn.WriteMessage(websocket.TextMessage, responseJSON)
@@ -203,7 +268,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to send message:", err)
 			}
 
-		case "sendUserMessage":
+		case configData.Commands.SendUserMessage:
 			var state int
 			//获取基本信息
 			var receivedPack jsonprovider.SendMessageRequest
@@ -227,7 +292,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				TimeStamp:   timeStamp,
 			}
 			// 向指定用户发送消息
-			isSent, msgerr := sendMessageToUser(recipientID, []byte(jsonprovider.StringifyJSON(sendingPack)))
+			isSent, msgerr := sendMessageToUser(recipientID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.SendUserMessage, sendingPack)))
 			if !isSent {
 				if msgerr == nil {
 					logger.Info("用户", recipientID, "不在线，已保存到离线消息")
@@ -245,7 +310,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				TimeStamp: timeStamp,
 				State:     state,
 			}
-			_, err := sendMessageToUser(userID, []byte(jsonprovider.StringifyJSON(ACKPack)))
+			_, err := sendMessageToUser(userID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.SendUserMessage, ACKPack)))
 			if err != nil {
 				logger.Debug("ACK回发错误", err)
 				connState = false
@@ -281,7 +346,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			// 向所有群成员发送消息
 			for _, memberID := range groupMembers {
-				_, err := sendMessageToUser(memberID, []byte(jsonprovider.StringifyJSON(sendingPack)))
+				_, err := sendMessageToUser(memberID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.SendGroupMessage, sendingPack)))
 				if err != nil {
 					logger.Debug("群消息发送错误", err)
 					connState = false
@@ -295,7 +360,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				TimeStamp: timeStamp,
 				State:     jsonprovider.UserReceived,
 			}
-			_, err = sendMessageToUser(userID, []byte(jsonprovider.StringifyJSON(ACKPack)))
+			_, err = sendMessageToUser(userID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.SendGroupMessage, ACKPack)))
 			if err != nil {
 				logger.Debug("群消息ACK回发错误", err)
 				connState = false
@@ -333,7 +398,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 发送响应
-			message := jsonprovider.StringifyJSON(res)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.AddFriend, res)
 			_, err = sendMessageToUser(userID, []byte(message))
 			if err != nil {
 				logger.Error("Failed to send add friend response:", err)
@@ -377,7 +442,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 发送响应
-			message := jsonprovider.StringifyJSON(res)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.DeleteFriend, res)
 			_, err = sendMessageToUser(userID, []byte(message))
 			if err != nil {
 				logger.Error("Failed to send delete friend response:", err)
@@ -420,7 +485,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 发送响应
-			message := jsonprovider.StringifyJSON(responsePack)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.CreateGroup, responsePack)
 			_, err = sendMessageToUser(userID, []byte(message))
 			if err != nil {
 				logger.Error("Failed to send group creation response:", err)
@@ -443,7 +508,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 发送响应
-			message := jsonprovider.StringifyJSON(res)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.BreakGroup, res)
 			_, err = sendMessageToUser(userID, []byte(message))
 			if err != nil {
 				logger.Error("Failed to send group break response:", err)
@@ -463,7 +528,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 发送响应
-			message := jsonprovider.StringifyJSON(res)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.GetUserData, res)
 			_, err = sendMessageToUser(userID, message)
 			if err != nil {
 				logger.Error("Failed to send user data:", err)
@@ -508,7 +573,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 发送响应
-			message := jsonprovider.StringifyJSON(res)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.GetMessagesWithUser, res)
 			_, err = sendMessageToUser(userID, []byte(message))
 			if err != nil {
 				logger.Error("Failed to send message history:", err)
@@ -537,7 +602,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 发送响应
-			message := jsonprovider.StringifyJSON(res)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.ChangeAvatar, res)
 			_, err = sendMessageToUser(userID, []byte(message))
 			if err != nil {
 				logger.Error("Failed to send avatar change response:", err)

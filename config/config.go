@@ -42,6 +42,8 @@ type Config struct {
 		}
 	}
 	Commands struct {
+		Login                string `json:"login"`
+		Register             string `json:"register"`
 		Heart                string `json:"heart"`
 		CheckUserOnlineState string `json:"checkUserOnlineState"`
 		SendUserMessage      string `json:"sendUserMessage"`
@@ -296,6 +298,8 @@ func getDefaultConfig() Config {
 			DefaultHomePageData: struct{}{},
 		},
 		Commands: struct {
+			Login                string "json:\"login\""
+			Register             string "json:\"register\""
 			Heart                string "json:\"heart\""
 			CheckUserOnlineState string "json:\"checkUserOnlineState\""
 			SendUserMessage      string "json:\"sendUserMessage\""
@@ -315,6 +319,8 @@ func getDefaultConfig() Config {
 			ChangeAvatar         string "json:\"changeAvatar\""
 			Logout               string "json:\"logout\""
 		}{
+			Login:                "login",
+			Register:             "register",
 			Heart:                "heart",
 			CheckUserOnlineState: "checkUserOnlineState",
 			SendUserMessage:      "sendUserMessage",
