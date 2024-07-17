@@ -20,10 +20,16 @@ jobs:
         REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
         REMOTE_USER: ${{ secrets.REMOTE_USER }}
         SCRIPT_AFTER: |
-          fuser -k 8080/tcp
+          set -e
+          fuser -k 8080/tcp || true
           cd /home/${{ secrets.REMOTE_USER }}/
-          cat > ./config.json << EOF
-          ${{ secrets.DEPLOY_CONFIG }}
-          EOF
-          go build
-          nohup ./LiteChatServer &
+          echo "${{ secrets.DEPLOY_CONFIG }}" > config.json
+          go build -o LiteChatServer
+          nohup ./LiteChatServer > server.log 2>&1 &
+          sleep 5
+          if ! pgrep LiteChatServer > /dev/null; then
+            echo "LiteChatServer failed to start."
+            cat server.log
+            exit 1
+          fi
+          echo "LiteChatServer started successfully."
