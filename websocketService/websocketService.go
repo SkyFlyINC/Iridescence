@@ -252,6 +252,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				TimeStamp: time.Now().Local().UTC().Nanosecond(),
 			})
 			// 发送响应给请求者
+			//不走sendJSON，不然太费数据库了
 			err := conn.WriteMessage(websocket.TextMessage, responsePack)
 			if err != nil {
 				logger.Error("心跳包回发错误:", err)
@@ -267,21 +268,10 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			user, exists := Clients[onlineStateRequest.UserID]
 			ClientsLock.Unlock()
 			isOnline := exists && user.Conn != nil
-
-			// 构造响应
-			onlineStateResponse := jsonprovider.CheckUserOnlineStateResponse{
+			sendJSONToUser(userID, jsonprovider.CheckUserOnlineStateResponse{
 				UserID:   onlineStateRequest.UserID,
 				IsOnline: isOnline,
-			}
-
-			// 序列化响应为JSON
-			responseJSON := jsonprovider.SdandarlizeJSON_byte(configData.Commands.CheckUserOnlineState, onlineStateResponse)
-
-			// 发送响应给请求者
-			err := conn.WriteMessage(websocket.TextMessage, responseJSON)
-			if err != nil {
-				logger.Error("Failed to send message:", err)
-			}
+			}, configData.Commands.CheckUserOnlineState)
 
 		case configData.Commands.SendUserMessage:
 			var state int
@@ -307,7 +297,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				TimeStamp:   timeStamp,
 			}
 			// 向指定用户发送消息
-			isSent, msgerr := sendMessageToUser(recipientID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.SendUserMessage, sendingPack)))
+			isSent, msgerr := sendMessageToUser(recipientID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.MessageFromUser, sendingPack)))
 			if !isSent {
 				if msgerr == nil {
 					logger.Info("用户", recipientID, "不在线，已保存到离线消息")
@@ -318,19 +308,14 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			} else {
 				state = jsonprovider.UserReceived
 			}
-			//回发ACK包
-			ACKPack := &jsonprovider.SendMessageResponse{
+			//回发
+			sendJSONToUser(userID, jsonprovider.SendMessageResponse{
 				RequestID: requestMessageID,
 				MessageID: messageID,
 				TimeStamp: timeStamp,
 				State:     state,
-			}
-			_, err := sendMessageToUser(userID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.SendUserMessage, ACKPack)))
-			if err != nil {
-				logger.Debug("ACK回发错误", err)
-				connState = false
-			}
-		case "sendGroupMessage":
+			}, configData.Commands.SendUserMessage)
+		case configData.Commands.SendGroupMessage:
 			var req jsonprovider.SendGroupMessageRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
 
@@ -343,14 +328,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				connState = false
 			}
 
-			// 构造发送数据包
-			sendingPack := &jsonprovider.SendMessageToGroupPack{
-				SenderID:    userID,
-				MessageID:   messageID,
-				MessageBody: req.MessageBody,
-				TimeStamp:   timeStamp,
-			}
-
 			// 获取群成员
 			var groupMembers []int
 			err = db.QueryRow("SELECT groupMembers FROM groupdatatable WHERE groupID = ?", req.GroupID).Scan(&groupMembers)
@@ -361,26 +338,21 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			// 向所有群成员发送消息
 			for _, memberID := range groupMembers {
-				_, err := sendMessageToUser(memberID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.SendGroupMessage, sendingPack)))
-				if err != nil {
-					logger.Debug("群消息发送错误", err)
-					connState = false
-				}
+				sendJSONToUser(memberID, jsonprovider.SendMessageToGroupPack{
+					SenderID:    userID,
+					MessageID:   messageID,
+					MessageBody: req.MessageBody,
+					TimeStamp:   timeStamp,
+				}, configData.Commands.MessageFromGroup)
 			}
 
-			//回发ACK包
-			ACKPack := &jsonprovider.SendGroupMessageResponse{
+			sendJSONToUser(userID, jsonprovider.SendGroupMessageResponse{
 				RequestID: req.RequestID,
 				MessageID: messageID,
 				TimeStamp: timeStamp,
 				State:     jsonprovider.UserReceived,
-			}
-			_, err = sendMessageToUser(userID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.SendGroupMessage, ACKPack)))
-			if err != nil {
-				logger.Debug("群消息ACK回发错误", err)
-				connState = false
-			}
-		case "addFriend":
+			}, configData.Commands.SendGroupMessage)
+		case configData.Commands.AddFriend:
 			var req jsonprovider.AddFriendRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
 
@@ -405,21 +377,12 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to update friend list:", err)
 			}
 
-			// 创建响应
-			res := jsonprovider.AddFriendResponse{
+			sendJSONToUser(userID, jsonprovider.AddFriendResponse{
 				UserID:   userID,
 				FriendID: req.FriendID,
 				Success:  err == nil,
-			}
-
-			// 发送响应
-			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.AddFriend, res)
-			_, err = sendMessageToUser(userID, []byte(message))
-			if err != nil {
-				logger.Error("Failed to send add friend response:", err)
-			}
-
-		case "deleteFriend":
+			}, configData.Commands.AddFriend)
+		case configData.Commands.DeleteFriend:
 			var req jsonprovider.DeleteFriendRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
 
@@ -449,23 +412,13 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to update friend list:", err)
 			}
 
-			// 创建响应
-			res := jsonprovider.DeleteFriendResponse{
+			sendJSONToUser(userID, jsonprovider.DeleteFriendResponse{
 				UserID:   userID,
 				FriendID: req.FriendID,
 				Success:  err == nil,
-			}
-
-			// 发送响应
-			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.DeleteFriend, res)
-			_, err = sendMessageToUser(userID, []byte(message))
-			if err != nil {
-				logger.Error("Failed to send delete friend response:", err)
-			}
-
-		case "changeFriendSettings":
-
-		case "createGroup":
+			}, configData.Commands.DeleteFriend)
+		case configData.Commands.ChangeFriendSettings:
+		case configData.Commands.CreateGroup:
 			var req jsonprovider.CreateGroupRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
 
@@ -493,19 +446,11 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to update group members:", err)
 			}
 
-			// 创建响应
-			responsePack := jsonprovider.CreateGroupResponse{
+			sendJSONToUser(userID, jsonprovider.CreateGroupResponse{
 				GroupID: groupID,
 				Success: err == nil,
-			}
-
-			// 发送响应
-			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.CreateGroup, responsePack)
-			_, err = sendMessageToUser(userID, []byte(message))
-			if err != nil {
-				logger.Error("Failed to send group creation response:", err)
-			}
-		case "breakGroup":
+			}, configData.Commands.CreateGroup)
+		case configData.Commands.BreakGroup:
 			var req jsonprovider.BreakGroupRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
 
@@ -516,22 +461,12 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// 创建响应
-			res := jsonprovider.BreakGroupResponse{
+			sendJSONToUser(userID, jsonprovider.BreakGroupResponse{
 				GroupID: req.GroupID,
 				Success: err == nil,
-			}
-
-			// 发送响应
-			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.BreakGroup, res)
-			_, err = sendMessageToUser(userID, []byte(message))
-			if err != nil {
-				logger.Error("Failed to send group break response:", err)
-			}
-
-		case "changeGroupSettings":
-
-		case "getUserData":
+			}, configData.Commands.BreakGroup)
+		case configData.Commands.ChangeGroupSettings:
+		case configData.Commands.GetUserData:
 			var req jsonprovider.GetUserDataRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
 
@@ -541,21 +476,12 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to get user data:", err)
 				return
 			}
-
-			// 发送响应
-			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.GetUserData, res)
-			_, err = sendMessageToUser(userID, message)
-			if err != nil {
-				logger.Error("Failed to send user data:", err)
-			}
-		case "messageEvent":
-
-		case "userStateEvent":
-
-		case "getOfflineMessage":
+			sendJSONToUser(userID, res, configData.Commands.GetUserData)
+		case configData.Commands.MessageEvent:
+		case configData.Commands.UserStateEvent:
+		case configData.Commands.GetOfflineMessage:
 			handleGetOfflineMessages(userID)
-
-		case "getMessagesWithUser":
+		case configData.Commands.GetMessagesWithUser:
 			var req jsonprovider.GetMessagesWithUserRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
 
@@ -579,24 +505,14 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			err = rows.Close()
 			if err != nil {
-
+				logger.Error(err)
 			}
-			// 创建响应
-			res := jsonprovider.GetMessagesWithUserResponse{
+			sendJSONToUser(userID, jsonprovider.GetMessagesWithUserResponse{
 				UserID:   userID,
 				Messages: messages,
-			}
-
-			// 发送响应
-			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.GetMessagesWithUser, res)
-			_, err = sendMessageToUser(userID, []byte(message))
-			if err != nil {
-				logger.Error("Failed to send message history:", err)
-			}
-
-		case "changeSettings":
-
-		case "changeAvatar":
+			}, configData.Commands.GetMessagesWithUser)
+		case configData.Commands.ChangeSettings:
+		case configData.Commands.ChangeAvatar:
 			var req jsonprovider.ChangeAvatarRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
 
@@ -608,24 +524,15 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Error("Failed to update avatar:", err)
 			}
-
-			// 创建响应
-			res := jsonprovider.ChangeAvatarResponse{
+			// 发送响应
+			sendJSONToUser(userID, jsonprovider.ChangeAvatarResponse{
 				UserID:    userID,
 				NewAvatar: req.NewAvatar,
 				Success:   err == nil,
-			}
-
-			// 发送响应
-			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.ChangeAvatar, res)
-			_, err = sendMessageToUser(userID, []byte(message))
-			if err != nil {
-				logger.Error("Failed to send avatar change response:", err)
-			}
-		case "logout":
+			}, configData.Commands.ChangeAvatar)
+		case configData.Commands.Logout:
 			connState = false
 		}
-
 	}
 
 	// 用户断开连接
@@ -650,6 +557,14 @@ func BroadcastMessage(message []byte) {
 			logger.Error("Failed to send message:", err)
 			// 处理发送消息失败的情况
 		}
+	}
+}
+
+func sendJSONToUser(userID int, msg interface{}, command string) {
+	message := jsonprovider.SdandarlizeJSON_byte(command, msg)
+	_, err := sendMessageToUser(userID, []byte(message))
+	if err != nil {
+		logger.Error("err in func sendJSONToUser :", err)
 	}
 }
 
@@ -703,15 +618,8 @@ func handleGetOfflineMessages(userID int) {
 	}
 
 	// 创建响应
-	res := jsonprovider.GetOfflineMessagesResponse{
+	sendJSONToUser(userID, jsonprovider.GetOfflineMessagesResponse{
 		State:    true,
 		Messages: messages,
-	}
-
-	// 发送响应
-	message := jsonprovider.StringifyJSON(res)
-	_, err = sendMessageToUser(userID, []byte(message))
-	if err != nil {
-		logger.Error("Failed to send offline messages:", err)
-	}
+	}, configData.Commands.GetOfflineMessage)
 }

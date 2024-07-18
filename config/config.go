@@ -48,6 +48,8 @@ type Config struct {
 		CheckUserOnlineState string `json:"checkUserOnlineState"`
 		SendUserMessage      string `json:"sendUserMessage"`
 		SendGroupMessage     string `json:"sendGroupMessage"`
+		MessageFromUser      string `json:"messageFromUser"`
+		MessageFromGroup     string `json:"messageFromGroup"`
 		AddFriend            string `json:"addFriend"`
 		DeleteFriend         string `json:"deleteFriend"`
 		ChangeFriendSettings string `json:"changeFriendSettings"`
@@ -304,6 +306,8 @@ func getDefaultConfig() Config {
 			CheckUserOnlineState string "json:\"checkUserOnlineState\""
 			SendUserMessage      string "json:\"sendUserMessage\""
 			SendGroupMessage     string "json:\"sendGroupMessage\""
+			MessageFromUser      string "json:\"messageFromUser\""
+			MessageFromGroup     string "json:\"messageFromGroup\""
 			AddFriend            string "json:\"addFriend\""
 			DeleteFriend         string "json:\"deleteFriend\""
 			ChangeFriendSettings string "json:\"changeFriendSettings\""
@@ -325,6 +329,8 @@ func getDefaultConfig() Config {
 			CheckUserOnlineState: "checkUserOnlineState",
 			SendUserMessage:      "sendUserMessage",
 			SendGroupMessage:     "sendGroupMessage",
+			MessageFromUser:      "messageFromUser",
+			MessageFromGroup:     "messageFromGroup",
 			AddFriend:            "addFriend",
 			DeleteFriend:         "deleteFriend",
 			ChangeFriendSettings: "changeFriendSettings",
