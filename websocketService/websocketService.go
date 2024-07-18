@@ -255,7 +255,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Error("心跳包回发错误:", err)
 			}
-
 		case configData.Commands.CheckUserOnlineState:
 			// 解析请求
 			var onlineStateRequest jsonprovider.CheckUserOnlineStateRequest
@@ -270,7 +269,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				UserID:   onlineStateRequest.UserID,
 				IsOnline: isOnline,
 			}, configData.Commands.CheckUserOnlineState)
-
 		case configData.Commands.SendUserMessage:
 			var state int
 			//获取基本信息
@@ -359,6 +357,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			var friends []int
 			err := json.Unmarshal(friendList, &friends)
 			if err != nil {
+				logger.Error("Failed to update friend list:", err)
 				break
 			}
 
@@ -510,6 +509,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				Messages: messages,
 			}, configData.Commands.GetMessagesWithUser)
 		case configData.Commands.ChangeSettings:
+
 		case configData.Commands.ChangeAvatar:
 			var req jsonprovider.ChangeAvatarRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
