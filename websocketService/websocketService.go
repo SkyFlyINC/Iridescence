@@ -79,7 +79,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			logger.Error("读取消息失败:", err)
-			continue
+			break
 		}
 
 		var pre jsonprovider.StandardJSONPack
