@@ -509,7 +509,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				Messages: messages,
 			}, configData.Commands.GetMessagesWithUser)
 		case configData.Commands.ChangeSettings:
-
 		case configData.Commands.ChangeAvatar:
 			var req jsonprovider.ChangeAvatarRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
