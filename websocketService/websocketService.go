@@ -61,7 +61,12 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			logger.Error(err)
+		}
+	}()
 	if err != nil {
 		logger.Error("WebSocket upgrade failed:", err)
 		return
@@ -153,7 +158,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to send message:", err)
 				// 处理发送消息失败的情况
 			}
-
 		case configData.Commands.Register:
 			var username, password string
 			var user jsonprovider.SignUpRequest
@@ -217,18 +221,16 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	connState = true
 	// 创建一个定时器，实现心跳包机制
 	timer := time.NewTimer(time.Duration(configData.WebSocketHeartbeatTimeoutSeconds) * time.Second)
+	go func() {
+		<-timer.C // 阻塞直到定时器触发
+		if useHeartPack {
+			connState = false
+		}
+	}()
 	for {
 		if !connState {
 			break //跳出循环，释放资源
 		}
-
-		go func() {
-			<-timer.C // 阻塞直到定时器触发
-			if useHeartPack {
-				connState = false
-				conn.Close()
-			}
-		}()
 
 		// 读取消息
 		_, message, err := conn.ReadMessage()
@@ -550,7 +552,7 @@ func BroadcastMessage(message []byte) {
 	for _, client := range Clients {
 		sendJSONToUser(client.UserId, jsonprovider.BroadcastMessage{
 			Message: string(message),
-		}, configData.Commands.MessageFromUser)
+		}, configData.Commands.BroadcastMessage)
 	}
 }
 

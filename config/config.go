@@ -50,6 +50,7 @@ type Config struct {
 		SendGroupMessage     string `json:"sendGroupMessage"`
 		MessageFromUser      string `json:"messageFromUser"`
 		MessageFromGroup     string `json:"messageFromGroup"`
+		BroadcastMessage     string `json:"broadcastMessage"`
 		AddFriend            string `json:"addFriend"`
 		DeleteFriend         string `json:"deleteFriend"`
 		ChangeFriendSettings string `json:"changeFriendSettings"`
@@ -308,6 +309,7 @@ func getDefaultConfig() Config {
 			SendGroupMessage     string "json:\"sendGroupMessage\""
 			MessageFromUser      string "json:\"messageFromUser\""
 			MessageFromGroup     string "json:\"messageFromGroup\""
+			BroadcastMessage     string "json:\"broadcastMessage\""
 			AddFriend            string "json:\"addFriend\""
 			DeleteFriend         string "json:\"deleteFriend\""
 			ChangeFriendSettings string "json:\"changeFriendSettings\""
@@ -331,6 +333,7 @@ func getDefaultConfig() Config {
 			SendGroupMessage:     "sendGroupMessage",
 			MessageFromUser:      "messageFromUser",
 			MessageFromGroup:     "messageFromGroup",
+			BroadcastMessage:     "BroadcastMessage",
 			AddFriend:            "addFriend",
 			DeleteFriend:         "deleteFriend",
 			ChangeFriendSettings: "changeFriendSettings",
