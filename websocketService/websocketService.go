@@ -19,10 +19,6 @@ import (
 var (
 	Clients     = make(map[int]*User) // 保存用户ID与用户结构体的映射关系
 	ClientsLock sync.Mutex            // 用于保护映射关系的互斥锁
-
-	////用于ACK的消息池
-	//processingStateMessages     = make(map[int64]*Message)
-	//processingStateMessagesLock sync.Mutex
 )
 
 // User 用户结构体
@@ -552,11 +548,9 @@ func BroadcastMessage(message []byte) {
 	defer ClientsLock.Unlock()
 
 	for _, client := range Clients {
-		err := client.Conn.WriteMessage(websocket.TextMessage, message)
-		if err != nil {
-			logger.Error("Failed to send message:", err)
-			// 处理发送消息失败的情况
-		}
+		sendJSONToUser(client.UserId, jsonprovider.BroadcastMessage{
+			Message: string(message),
+		}, configData.Commands.MessageFromUser)
 	}
 }
 

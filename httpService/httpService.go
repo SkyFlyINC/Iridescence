@@ -40,9 +40,9 @@ var UserToTokens map[int]*string = make(map[int]*string)
 func fmtPrintF(io io.Writer, content string, a ...any) {
 	var err error
 	if a == nil {
-		_, err = fmt.Fprintf(io, content)
+		_, err = fmt.Fprint(io, content)
 	} else {
-		_, err = fmt.Fprintf(io, content, a)
+		_, err = fmt.Fprintf(io, content, a...)
 	}
 
 	if err != nil {
@@ -241,16 +241,9 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 	user, ok := Tokens[token]
 
 	// 验证token是否有效
-	if !CheckTokenExpiry(token) || ok == false {
+	if !CheckTokenExpiry(token) || !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmtPrintF(w, "Invalid token")
-		return
-	}
-
-	// 验证用户ID是否有效
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmtPrintF(w, "Invalid userID")
 		return
 	}
 	if user.UserPermission >= config.PermissionServer {
@@ -262,7 +255,7 @@ func HandleRequest(w http.ResponseWriter, r *http.Request) {
 			targetUser, ok := Tokens[targetToken]
 
 			// 验证token是否有效
-			if !CheckTokenExpiry(token) || ok == false {
+			if !CheckTokenExpiry(token) || !ok {
 				w.WriteHeader(http.StatusUnauthorized)
 				fmtPrintF(w, "Invalid token")
 				return

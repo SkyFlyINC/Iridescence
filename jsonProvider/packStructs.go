@@ -217,3 +217,7 @@ type GetPostsRequest struct {
 type GetPostsResponse struct {
 	Posts []GetPostResponse `json:"posts"`
 }
+
+type BroadcastMessage struct {
+	Message string `json:"message"`
+}

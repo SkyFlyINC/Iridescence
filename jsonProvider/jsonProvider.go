@@ -1,7 +1,6 @@
 package jsonprovider
 
 import (
-	"encoding/json"
 	"io"
 	"logger"
 
@@ -44,11 +43,7 @@ func SdandarlizeJSON_byte(command string, content interface{}) []byte {
 }
 
 func SdandarlizeJSON(command string, content interface{}) interface{} {
-	contentBytes, err := json.Marshal(content)
-	if err != nil {
-		logger.Error("Error marshaling content: %v", err)
-		return nil
-	}
+	contentBytes := StringifyJSON(content)
 	var res = StandardJSONPack{
 		Command: command,
 		Content: contentBytes,
