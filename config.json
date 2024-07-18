@@ -29,12 +29,12 @@
     "DefaultSettings": {},
     "defaultPermission": 0,
     "defaultFriendList": [
-      "1",
-      "2"
+      1,
+      2
     ],
     "defaultGroupList": [
-      "3",
-      "4"
+      3,
+      4
     ],
     "defaultNote": "暂无签名",
     "DefaultHomePageData": {}
