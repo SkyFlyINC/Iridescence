@@ -34,10 +34,10 @@ type Config struct {
 		DefaultAvatar   string `json:"defaultAvatar"`
 		DefaultSettings struct {
 		}
-		DefaultPermission   int      `json:"defaultPermission"`
-		DefaultFriendList   []string `json:"defaultFriendList"`
-		DefaultGroupList    []string `json:"defaultGroupList"`
-		DefaultNote         string   `json:"defaultNote"`
+		DefaultPermission   int    `json:"defaultPermission"`
+		DefaultFriendList   []int  `json:"defaultFriendList"`
+		DefaultGroupList    []int  `json:"defaultGroupList"`
+		DefaultNote         string `json:"defaultNote"`
 		DefaultHomePageData struct {
 		}
 	}
@@ -285,10 +285,10 @@ func getDefaultConfig() Config {
 			DefaultAvatar   string `json:"defaultAvatar"`
 			DefaultSettings struct {
 			}
-			DefaultPermission   int      `json:"defaultPermission"`
-			DefaultFriendList   []string `json:"defaultFriendList"`
-			DefaultGroupList    []string `json:"defaultGroupList"`
-			DefaultNote         string   `json:"defaultNote"`
+			DefaultPermission   int    `json:"defaultPermission"`
+			DefaultFriendList   []int  `json:"defaultFriendList"`
+			DefaultGroupList    []int  `json:"defaultGroupList"`
+			DefaultNote         string `json:"defaultNote"`
 			DefaultHomePageData struct {
 			}
 		}{
@@ -296,8 +296,8 @@ func getDefaultConfig() Config {
 			DefaultPermission:   PermissionOrdinaryUser,
 			DefaultAvatar:       "http://127.0.0.1",
 			DefaultSettings:     struct{}{},
-			DefaultGroupList:    []string{"3", "4"},
-			DefaultFriendList:   []string{"1", "2"},
+			DefaultGroupList:    []int{3, 4},
+			DefaultFriendList:   []int{1, 2},
 			DefaultHomePageData: struct{}{},
 		},
 		Commands: struct {
