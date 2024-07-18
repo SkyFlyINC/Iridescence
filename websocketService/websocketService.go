@@ -78,7 +78,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	for !Logined {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			logger.Error("读取消息失败:", err)
+			logger.Debug("读取消息失败，可能是用户断开连接:", err)
 			break
 		}
 
@@ -227,7 +227,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			connState = false
 		}
 	}()
-	for {
+	for Logined {
 		if !connState {
 			break //跳出循环，释放资源
 		}
