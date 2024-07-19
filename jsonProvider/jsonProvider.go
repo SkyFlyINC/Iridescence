@@ -48,6 +48,6 @@ func SdandarlizeJSON(command string, content interface{}) interface{} {
 		Command: command,
 		Content: contentBytes,
 	}
-	logger.Debug("服务器回发包：", res)
+
 	return res
 }

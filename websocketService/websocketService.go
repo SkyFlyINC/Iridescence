@@ -17,12 +17,9 @@ import (
 )
 
 var (
-	Clients     = make(map[int]*User) // 保存用户ID与用户结构体的映射关系
-	ClientsLock sync.Mutex            // 用于保护映射关系的互斥锁
+	Clients     = make(map[int]*jsonprovider.User) // 保存用户ID与用户结构体的映射关系
+	ClientsLock sync.Mutex                         // 用于保护映射关系的互斥锁
 )
-
-// User 用户结构体
-type User jsonprovider.User
 
 var (
 	configData config.Config
@@ -122,9 +119,15 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 					logger.Error("获取用户数据失败:", err)
 					continue
 				}
+				var userState int
+				if p.UserState != nil {
+					userState = *p.UserState
+				} else {
+					userState = jsonprovider.Online
+				} //指针判空，确认登陆状态
 
 				// 创建新的User结构体
-				user := &User{
+				user := &jsonprovider.User{
 					UserId:         userID,
 					Conn:           conn,
 					UserName:       username,
@@ -132,6 +135,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 					UserNote:       userNote,
 					UserPermission: userPermission,
 					UserFriendList: userFriendList,
+					UserState:      &userState,
 				}
 
 				// 保存到clients map中
@@ -140,19 +144,23 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				ClientsLock.Unlock()
 
 				res = jsonprovider.LoginResponse{
-					State:    true,
-					Message:  "登录成功",
-					UserData: jsonprovider.User(*user),
+					StandardResponsePack: jsonprovider.StandardResponsePack{
+						Success: true,
+						Message: "登录成功",
+					},
+					UserData: user,
 				}
 				logger.Debug("用户", userID, "登录成功")
 				Logined = true
 			} else {
 				res = jsonprovider.LoginResponse{
-					State:   false,
-					Message: "登录失败",
+					StandardResponsePack: jsonprovider.StandardResponsePack{
+						Success: false,
+						Message: "登录失败",
+					},
 				}
 			}
-			message := jsonprovider.StringifyJSON(res)
+			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.Login, &res)
 			err = conn.WriteMessage(websocket.TextMessage, message)
 			if err != nil {
 				logger.Error("Failed to send message:", err)
@@ -203,9 +211,11 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			res := jsonprovider.SignUpResponse{
-				State:   state,
-				Userid:  int(userID),
-				Message: resString,
+				StandardResponsePack: jsonprovider.StandardResponsePack{
+					Success: state,
+					Message: resString,
+				},
+				Userid: int(userID),
 			}
 			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.Register, &res)
 			err = conn.WriteMessage(websocket.TextMessage, message)
@@ -377,7 +387,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			sendJSONToUser(userID, jsonprovider.AddFriendResponse{
 				UserID:   userID,
 				FriendID: req.FriendID,
-				Success:  err == nil,
+				StandardResponsePack: jsonprovider.StandardResponsePack{
+					Success: err == nil,
+				},
 			}, configData.Commands.AddFriend)
 		case configData.Commands.DeleteFriend:
 			var req jsonprovider.DeleteFriendRequest
@@ -412,7 +424,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			sendJSONToUser(userID, jsonprovider.DeleteFriendResponse{
 				UserID:   userID,
 				FriendID: req.FriendID,
-				Success:  err == nil,
+				StandardResponsePack: jsonprovider.StandardResponsePack{
+					Success: err == nil,
+				},
 			}, configData.Commands.DeleteFriend)
 		case configData.Commands.ChangeFriendSettings:
 		case configData.Commands.CreateGroup:
@@ -445,7 +459,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			sendJSONToUser(userID, jsonprovider.CreateGroupResponse{
 				GroupID: groupID,
-				Success: err == nil,
+				StandardResponsePack: jsonprovider.StandardResponsePack{
+					Success: err == nil,
+				},
 			}, configData.Commands.CreateGroup)
 		case configData.Commands.BreakGroup:
 			var req jsonprovider.BreakGroupRequest
@@ -460,7 +476,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			sendJSONToUser(userID, jsonprovider.BreakGroupResponse{
 				GroupID: req.GroupID,
-				Success: err == nil,
+				StandardResponsePack: jsonprovider.StandardResponsePack{
+					Success: err == nil,
+				},
 			}, configData.Commands.BreakGroup)
 		case configData.Commands.ChangeGroupSettings:
 		case configData.Commands.GetUserData:
@@ -475,7 +493,8 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			sendJSONToUser(userID, res, configData.Commands.GetUserData)
 		case configData.Commands.MessageEvent:
-		case configData.Commands.UserStateEvent:
+		case configData.Commands.UserStateEvent: //不具备缓存性质
+
 		case configData.Commands.GetOfflineMessage:
 			handleGetOfflineMessages(userID)
 		case configData.Commands.GetMessagesWithUser:
@@ -525,12 +544,17 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			sendJSONToUser(userID, jsonprovider.ChangeAvatarResponse{
 				UserID:    userID,
 				NewAvatar: req.NewAvatar,
-				Success:   err == nil,
+				StandardResponsePack: jsonprovider.StandardResponsePack{
+					Success: err == nil,
+				},
 			}, configData.Commands.ChangeAvatar)
 		case configData.Commands.Logout:
 			connState = false
 		}
+
 	}
+
+	//TODO 1.加好友包 2.申请加入群聊 3.消息验证 4.测试离线消息
 
 	// 用户断开连接
 	// 在此处删除映射关系
@@ -572,7 +596,7 @@ func sendMessageToUser(userID int, message []byte) (bool, error) {
 		logger.Warn("用户不在线:", userID)
 		return false, nil
 	}
-
+	logger.Debug("服务器回发包：", message)
 	err := client.Conn.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
 		logger.Error("消息发送失败:", err)

@@ -7,6 +7,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	Offline = iota
+	Online
+	Stealth
+	Other
+)
+
 type User struct {
 	UserId         int             `json:"userId"`
 	TokenExpiry    time.Time       `json:"-"`
@@ -16,6 +23,7 @@ type User struct {
 	UserNote       string          `json:"userNote"`
 	UserPermission uint            `json:"userPermission"`
 	UserFriendList json.RawMessage `json:"userFriendList"`
+	UserState      *int            `json:"userState,omitempty"`
 }
 
 type Friend struct {

@@ -4,10 +4,18 @@ import (
 	"encoding/json"
 )
 
+//消息体一律称为MessageBody，而不称为Content。MessageBody可以发挥MessageChain的功能
+
 // StandardJSONPack 根数据包结构体，仅用于websocket
 type StandardJSONPack struct {
 	Command string          `json:"command"`
 	Content json.RawMessage `json:"content"`
+}
+
+// Success是布尔值，State是int
+type StandardResponsePack struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
 }
 
 type HeartBeatPack struct {
@@ -18,11 +26,11 @@ type LoginRequest struct {
 	Userid                 int    `json:"userId"`
 	Password               string `json:"password"`
 	UseArtificialHeartPack bool   `json:"heartPack"`
+	UserState              *int   `json:"userState"`
 }
 type LoginResponse struct {
-	State    bool   `json:"state"`
-	Message  string `json:"message"`
-	UserData User   `json:"userData"`
+	StandardResponsePack
+	UserData *User `json:"userData,omitempty"`
 }
 type SignUpRequest struct {
 	UserName string `json:"userName"`
@@ -30,9 +38,8 @@ type SignUpRequest struct {
 }
 
 type SignUpResponse struct {
-	State   bool   `json:"state"`
-	Userid  int    `json:"userId"`
-	Message string `json:"message"`
+	StandardResponsePack
+	Userid int `json:"userId"`
 }
 type SendMessageRequest struct {
 	TargetID         int    `json:"targetId"`    //消息接收人
@@ -46,9 +53,10 @@ type SendMessageResponse struct {
 	RequestID int `json:"requestId"` //返回requestID，用于ACK机制
 	MessageID int `json:"messageId"` //返回递增的数据库主键，作为MessageID,用户可以用messageID进行后续的撤回，引用等操作
 	TimeStamp int `json:"time"`
-	State     int `json:"state"` //是否成功
+	State     int `json:"state"`
 }
 
+// 错误等级
 const (
 	UserRefused = iota
 	ServerSendError
@@ -63,14 +71,21 @@ type SendMessageToTargetPack struct {
 	TimeStamp   int    `json:"time"`
 }
 type SendMessagePackResponseFromUser struct {
-	MessageID int  `json:"messageId"`
-	State     bool `json:"state"`
+	StandardResponsePack
+	MessageID int `json:"messageId"`
 }
 
 type AddFriendRequest struct {
 	FriendID int `json:"friendId"`
 }
 
+type AddFriendResponse struct {
+	UserID   int `json:"userId"`
+	FriendID int `json:"friendId"`
+	StandardResponsePack
+}
+
+// 加好友要求对方同意的数据包通过sendUserMessage实现
 type DeleteFriendRequest struct {
 	FriendID int `json:"friendId"`
 }
@@ -102,9 +117,9 @@ type ChangeAvatarRequest struct {
 }
 
 type ChangeAvatarResponse struct {
-	UserID    int    `json:"userId"`
-	NewAvatar string `json:"newAvatar"`
-	Success   bool   `json:"success"`
+	UserID    int    `json:"userId,omitempty"`
+	NewAvatar string `json:"newAvatar,omitempty"`
+	StandardResponsePack
 }
 
 type GetMessagesWithUserRequest struct {
@@ -133,16 +148,16 @@ type CreateGroupRequest struct {
 }
 
 type CreateGroupResponse struct {
-	GroupID int64 `json:"groupId"`
-	Success bool  `json:"success"`
+	GroupID int64 `json:"groupId,omitempty"`
+	StandardResponsePack
 }
 type BreakGroupRequest struct {
-	GroupID int64 `json:"groupId"`
+	GroupID int64 `json:"groupId,omitempty"`
 }
 
 type BreakGroupResponse struct {
-	GroupID int64 `json:"groupId"`
-	Success bool  `json:"success"`
+	GroupID int64 `json:"groupId,omitempty"`
+	StandardResponsePack
 }
 type SendGroupMessageRequest struct {
 	GroupID     int64  `json:"groupId"`
@@ -164,16 +179,63 @@ type SendMessageToGroupPack struct {
 	TimeStamp   int    `json:"timeStamp"`
 }
 
-type AddFriendResponse struct {
-	UserID   int  `json:"userId"`
-	FriendID int  `json:"friendId"`
-	Success  bool `json:"success"`
+type RequestToBeAddedAsFriend struct {
+	ReceiverID int    `json:"receiverId"`
+	TimeStamp  int    `json:"timeStamp"`
+	Message    string `json:"message"`
+}
+
+type RequestToBeAddedIntoGroup struct {
+	GroupID   int    `json:"groupId"`
+	TimeStamp int    `json:"timeStamp"`
+	Message   string `json:"message"`
+}
+
+type RequestToBeAddedAsFriendFromUser struct {
+	ReceiverID int    `json:"receiverId"`
+	TimeStamp  int    `json:"timeStamp"`
+	Message    string `json:"message"`
+}
+
+type RequestToBeAddedIntoGroupFromUser struct {
+	GroupID   int    `json:"groupId"`
+	TimeStamp int    `json:"timeStamp"`
+	Message   string `json:"message"`
+}
+
+type RequestToQuitFromGroup struct {
+	UserID  int `json:"userId"`
+	GroupID int `json:"groupId"`
+}
+
+const (
+	Banned = iota
+	OrdinaryMember
+	Operator
+	Owner
+)
+
+type ChangeMemberPermissionInGroup struct {
+	GroupID       int `json:"groupId"`
+	UserID        int `json:"userId"`
+	NewPermission int `json:"newPermission"`
+}
+
+type ChangePasswordRequest struct {
+	UserID      int    `json:"userId"`
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
+
+type AddUserToGroupRequest struct {
+	GroupID int `json:"groupId"`
+	UserID  int `json:"userId"`
 }
 
 type DeleteFriendResponse struct {
-	UserID   int  `json:"userId"`
-	FriendID int  `json:"friendId"`
-	Success  bool `json:"success"`
+	UserID   int `json:"userId"`
+	FriendID int `json:"friendId"`
+	StandardResponsePack
 }
 type GetOfflineMessagesResponse struct {
 	State    bool      `json:"state"`

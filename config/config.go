@@ -8,64 +8,79 @@ import (
 	"os"
 )
 
+type Commands struct {
+	Login                     string `json:"login"`
+	Register                  string `json:"register"`
+	Heart                     string `json:"heart"`
+	CheckUserOnlineState      string `json:"checkUserOnlineState"`
+	SendUserMessage           string `json:"sendUserMessage"`
+	SendGroupMessage          string `json:"sendGroupMessage"`
+	MessageFromUser           string `json:"messageFromUser"`
+	MessageFromGroup          string `json:"messageFromGroup"`
+	BroadcastMessage          string `json:"broadcastMessage"`
+	AddFriend                 string `json:"addFriend"`
+	DeleteFriend              string `json:"deleteFriend"`
+	ChangeFriendSettings      string `json:"changeFriendSettings"`
+	CreateGroup               string `json:"createGroup"`
+	BreakGroup                string `json:"breakGroup"`
+	ChangeGroupSettings       string `json:"changeGroupSettings"`
+	GetUserData               string `json:"getUserData"`
+	MessageEvent              string `json:"messageEvent"`
+	UserStateEvent            string `json:"userStateEvent"`
+	GetOfflineMessage         string `json:"getOfflineMessage"`
+	GetMessagesWithUser       string `json:"getMessagesWithUser"`
+	ChangeSettings            string `json:"changeSettings"`
+	ChangeAvatar              string `json:"changeAvatar"`
+	Logout                    string `json:"logout"`
+	ChangePassword            string `json:"changePassword"`
+	AddUserToGroup            string `json:"addGroup"` //做好权限管理
+	RequestToBeAddedAsFriend  string `json:"requestToBeAddedAsFriend"`
+	RequestToBeAddedIntoGroup string `json:"requestToBeAddedIntoGroup"`
+}
+type DataBaseSettings struct {
+	Address  string `json:"address"`
+	Account  string `json:"account"`
+	Password string `json:"password"`
+}
+
+type Rotes struct {
+	RegisterServiceRote  string `json:"registerRote"`
+	RequestServiceRote   string `json:"requestRote"`
+	LoginServiceRote     string `json:"loginRote"`
+	WebSocketServiceRote string `json:"wsRote"`
+	UploadServiceRote    string `json:"uploadRote"`
+	DownloadServiceRote  string `json:"downloadRote"`
+}
+
+type UserSettings struct {
+	DefaultAvatar   string `json:"defaultAvatar"`
+	DefaultSettings struct {
+	}
+	DefaultPermission int    `json:"defaultPermission"`
+	DefaultFriendList []int  `json:"defaultFriendList"`
+	DefaultGroupList  []int  `json:"defaultGroupList"`
+	DefaultNote       string `json:"defaultNote"`
+	DefaultHomePageData
+}
+
+type DefaultHomePageData struct {
+}
+
+//TO be continued (TODO)
+
 type Config struct {
-	LogLevel         int    `json:"logLevel"`
-	Port             string `json:"port"`
-	DataBaseSettings struct {
-		Address  string `json:"address"`
-		Account  string `json:"account"`
-		Password string `json:"password"`
-	}
-	Rotes struct {
-		RegisterServiceRote  string `json:"registerRote"`
-		RequestServiceRote   string `json:"requestRote"`
-		LoginServiceRote     string `json:"loginRote"`
-		WebSocketServiceRote string `json:"wsRote"`
-		UploadServiceRote    string `json:"uploadRote"`
-		DownloadServiceRote  string `json:"downloadRote"`
-	}
+	LogLevel int    `json:"logLevel"`
+	Port     string `json:"port"`
+	DataBaseSettings
+	Rotes
 	WebsocketConnBufferSize          int      `json:"websocketConnBufferSize"`
 	WebSocketHeartbeatTimeoutSeconds int      `json:"webSocketHeartbeatTimeoutSeconds"`
 	SaltLength                       int      `json:"saltLength"`
 	TokenLength                      int      `json:"tokenLength"`
 	AuthorizedServerTokens           []string `json:"authorizedServerTokens"`
 	TokenExpiryHours                 float64  `json:"tokenExpiryHours"`
-	UserSettings                     struct {
-		DefaultAvatar   string `json:"defaultAvatar"`
-		DefaultSettings struct {
-		}
-		DefaultPermission   int    `json:"defaultPermission"`
-		DefaultFriendList   []int  `json:"defaultFriendList"`
-		DefaultGroupList    []int  `json:"defaultGroupList"`
-		DefaultNote         string `json:"defaultNote"`
-		DefaultHomePageData struct {
-		}
-	}
-	Commands struct {
-		Login                string `json:"login"`
-		Register             string `json:"register"`
-		Heart                string `json:"heart"`
-		CheckUserOnlineState string `json:"checkUserOnlineState"`
-		SendUserMessage      string `json:"sendUserMessage"`
-		SendGroupMessage     string `json:"sendGroupMessage"`
-		MessageFromUser      string `json:"messageFromUser"`
-		MessageFromGroup     string `json:"messageFromGroup"`
-		BroadcastMessage     string `json:"broadcastMessage"`
-		AddFriend            string `json:"addFriend"`
-		DeleteFriend         string `json:"deleteFriend"`
-		ChangeFriendSettings string `json:"changeFriendSettings"`
-		CreateGroup          string `json:"createGroup"`
-		BreakGroup           string `json:"breakGroup"`
-		ChangeGroupSettings  string `json:"changeGroupSettings"`
-		GetUserData          string `json:"getUserData"`
-		MessageEvent         string `json:"messageEvent"`
-		UserStateEvent       string `json:"userStateEvent"`
-		GetOfflineMessage    string `json:"getOfflineMessage"`
-		GetMessagesWithUser  string `json:"getMessagesWithUser"`
-		ChangeSettings       string `json:"changeSettings"`
-		ChangeAvatar         string `json:"changeAvatar"`
-		Logout               string `json:"logout"`
-	}
+	UserSettings
+	Commands
 }
 
 // LoadConfig 从指定的文件路径加载配置文件，如果文件不存在则创建并写入默认配置
@@ -251,23 +266,12 @@ func getDefaultConfig() Config {
 	defaultConfig := Config{
 		LogLevel: 2,
 		Port:     "8080",
-		DataBaseSettings: struct {
-			Address  string `json:"address"`
-			Account  string `json:"account"`
-			Password string `json:"password"`
-		}{
+		DataBaseSettings: DataBaseSettings{
 			Address:  "localhost:3306",
 			Account:  "default_account",
 			Password: "default_password",
 		},
-		Rotes: struct {
-			RegisterServiceRote  string `json:"registerRote"`
-			RequestServiceRote   string `json:"requestRote"`
-			LoginServiceRote     string `json:"loginRote"`
-			WebSocketServiceRote string `json:"wsRote"`
-			UploadServiceRote    string `json:"uploadRote"`
-			DownloadServiceRote  string `json:"downloadRote"`
-		}{
+		Rotes: Rotes{
 			RegisterServiceRote:  "/register",
 			RequestServiceRote:   "/request",
 			LoginServiceRote:     "/login",
@@ -281,17 +285,7 @@ func getDefaultConfig() Config {
 		WebsocketConnBufferSize:          2048,
 		WebSocketHeartbeatTimeoutSeconds: 10,
 		AuthorizedServerTokens:           []string{"token1", "token2", "token3"},
-		UserSettings: struct {
-			DefaultAvatar   string `json:"defaultAvatar"`
-			DefaultSettings struct {
-			}
-			DefaultPermission   int    `json:"defaultPermission"`
-			DefaultFriendList   []int  `json:"defaultFriendList"`
-			DefaultGroupList    []int  `json:"defaultGroupList"`
-			DefaultNote         string `json:"defaultNote"`
-			DefaultHomePageData struct {
-			}
-		}{
+		UserSettings: UserSettings{
 			DefaultNote:         "暂无签名",
 			DefaultPermission:   PermissionOrdinaryUser,
 			DefaultAvatar:       "http://127.0.0.1",
@@ -300,54 +294,34 @@ func getDefaultConfig() Config {
 			DefaultFriendList:   []int{1, 2},
 			DefaultHomePageData: struct{}{},
 		},
-		Commands: struct {
-			Login                string "json:\"login\""
-			Register             string "json:\"register\""
-			Heart                string "json:\"heart\""
-			CheckUserOnlineState string "json:\"checkUserOnlineState\""
-			SendUserMessage      string "json:\"sendUserMessage\""
-			SendGroupMessage     string "json:\"sendGroupMessage\""
-			MessageFromUser      string "json:\"messageFromUser\""
-			MessageFromGroup     string "json:\"messageFromGroup\""
-			BroadcastMessage     string "json:\"broadcastMessage\""
-			AddFriend            string "json:\"addFriend\""
-			DeleteFriend         string "json:\"deleteFriend\""
-			ChangeFriendSettings string "json:\"changeFriendSettings\""
-			CreateGroup          string "json:\"createGroup\""
-			BreakGroup           string "json:\"breakGroup\""
-			ChangeGroupSettings  string "json:\"changeGroupSettings\""
-			GetUserData          string "json:\"getUserData\""
-			MessageEvent         string "json:\"messageEvent\""
-			UserStateEvent       string "json:\"userStateEvent\""
-			GetOfflineMessage    string "json:\"getOfflineMessage\""
-			GetMessagesWithUser  string "json:\"getMessagesWithUser\""
-			ChangeSettings       string "json:\"changeSettings\""
-			ChangeAvatar         string "json:\"changeAvatar\""
-			Logout               string "json:\"logout\""
-		}{
-			Login:                "login",
-			Register:             "register",
-			Heart:                "heart",
-			CheckUserOnlineState: "checkUserOnlineState",
-			SendUserMessage:      "sendUserMessage",
-			SendGroupMessage:     "sendGroupMessage",
-			MessageFromUser:      "messageFromUser",
-			MessageFromGroup:     "messageFromGroup",
-			BroadcastMessage:     "BroadcastMessage",
-			AddFriend:            "addFriend",
-			DeleteFriend:         "deleteFriend",
-			ChangeFriendSettings: "changeFriendSettings",
-			CreateGroup:          "createGroup",
-			BreakGroup:           "breakGroup",
-			ChangeGroupSettings:  "changeGroupSettings",
-			GetUserData:          "getUserData",
-			MessageEvent:         "messageEvent",
-			UserStateEvent:       "userStateEvent",
-			GetOfflineMessage:    "getOfflineMessage",
-			GetMessagesWithUser:  "getMessagesWithUser",
-			ChangeSettings:       "changeSettings",
-			ChangeAvatar:         "changeAvatar",
-			Logout:               "logout",
+		Commands: Commands{
+			Login:                     "login",
+			Register:                  "register",
+			Heart:                     "heart",
+			CheckUserOnlineState:      "checkUserOnlineState",
+			SendUserMessage:           "sendUserMessage",
+			SendGroupMessage:          "sendGroupMessage",
+			MessageFromUser:           "messageFromUser",
+			MessageFromGroup:          "messageFromGroup",
+			BroadcastMessage:          "BroadcastMessage",
+			AddFriend:                 "addFriend",
+			DeleteFriend:              "deleteFriend",
+			ChangeFriendSettings:      "changeFriendSettings",
+			CreateGroup:               "createGroup",
+			BreakGroup:                "breakGroup",
+			ChangeGroupSettings:       "changeGroupSettings",
+			GetUserData:               "getUserData",
+			MessageEvent:              "messageEvent",
+			UserStateEvent:            "userStateEvent",
+			GetOfflineMessage:         "getOfflineMessage",
+			GetMessagesWithUser:       "getMessagesWithUser",
+			ChangeSettings:            "changeSettings",
+			ChangeAvatar:              "changeAvatar",
+			Logout:                    "logout",
+			ChangePassword:            "changePassword",
+			AddUserToGroup:            "addUserToGroup",
+			RequestToBeAddedAsFriend:  "requestToBeAddedAsFriend",
+			RequestToBeAddedIntoGroup: "requestToBeAddedIntoGroup",
 		},
 	}
 
