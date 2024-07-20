@@ -104,60 +104,66 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			passwordHash, passwordSalt, err := dbUtils.GetDBPasswordHash(userID)
 			if err != nil {
 				logger.Error("读取数据库密码哈希值失败", err)
-				continue
-			}
-			logger.Debug("登录时读取盐:", passwordSalt)
-			tryingPasswordHash := hashUtils.HashPassword(p.Password, passwordSalt)
-			logger.Debug("尝试哈希", tryingPasswordHash, "实际哈希", passwordHash)
-			if tryingPasswordHash == passwordHash {
-				// 从数据库中获取用户信息
-				var username, userAvatar, userNote string
-				var userPermission uint
-				var userFriendList json.RawMessage
-				err := db.QueryRow("SELECT userName, userAvatar, userNote, userPermission, userFriendList FROM userdatatable WHERE userID = ?", userID).Scan(&username, &userAvatar, &userNote, &userPermission, &userFriendList)
-				if err != nil {
-					logger.Error("获取用户数据失败:", err)
-					continue
-				}
-				var userState int
-				if p.UserState != nil {
-					userState = *p.UserState
-				} else {
-					userState = jsonprovider.Online
-				} //指针判空，确认登陆状态
-
-				// 创建新的User结构体
-				user := &jsonprovider.User{
-					UserId:         userID,
-					Conn:           conn,
-					UserName:       username,
-					UserAvatar:     userAvatar,
-					UserNote:       userNote,
-					UserPermission: userPermission,
-					UserFriendList: userFriendList,
-					UserState:      &userState,
-				}
-
-				// 保存到clients map中
-				ClientsLock.Lock()
-				Clients[userID] = user
-				ClientsLock.Unlock()
-
-				res = jsonprovider.LoginResponse{
-					StandardResponsePack: jsonprovider.StandardResponsePack{
-						Success: true,
-						Message: "登录成功",
-					},
-					UserData: user,
-				}
-				logger.Debug("用户", userID, "登录成功")
-				Logined = true
-			} else {
 				res = jsonprovider.LoginResponse{
 					StandardResponsePack: jsonprovider.StandardResponsePack{
 						Success: false,
-						Message: "登录失败",
+						Message: err.Error(),
 					},
+				}
+			} else {
+				logger.Debug("登录时读取盐:", passwordSalt)
+				tryingPasswordHash := hashUtils.HashPassword(p.Password, passwordSalt)
+				logger.Debug("尝试哈希", tryingPasswordHash, "实际哈希", passwordHash)
+				if tryingPasswordHash == passwordHash {
+					// 从数据库中获取用户信息
+					var username, userAvatar, userNote string
+					var userPermission uint
+					var userFriendList json.RawMessage
+					err := db.QueryRow("SELECT userName, userAvatar, userNote, userPermission, userFriendList FROM userdatatable WHERE userID = ?", userID).Scan(&username, &userAvatar, &userNote, &userPermission, &userFriendList)
+					if err != nil {
+						logger.Error("获取用户数据失败:", err)
+						continue
+					}
+					var userState int
+					if p.UserState != nil {
+						userState = *p.UserState
+					} else {
+						userState = jsonprovider.Online
+					} //指针判空，确认登陆状态
+
+					// 创建新的User结构体
+					user := &jsonprovider.User{
+						UserId:         userID,
+						Conn:           conn,
+						UserName:       username,
+						UserAvatar:     userAvatar,
+						UserNote:       userNote,
+						UserPermission: userPermission,
+						UserFriendList: userFriendList,
+						UserState:      &userState,
+					}
+
+					// 保存到clients map中
+					ClientsLock.Lock()
+					Clients[userID] = user
+					ClientsLock.Unlock()
+
+					res = jsonprovider.LoginResponse{
+						StandardResponsePack: jsonprovider.StandardResponsePack{
+							Success: true,
+							Message: "登录成功",
+						},
+						UserData: user,
+					}
+					logger.Debug("用户", userID, "登录成功")
+					Logined = true
+				} else {
+					res = jsonprovider.LoginResponse{
+						StandardResponsePack: jsonprovider.StandardResponsePack{
+							Success: false,
+							Message: "账号或密码错误",
+						},
+					}
 				}
 			}
 			message := jsonprovider.SdandarlizeJSON_byte(configData.Commands.Login, &res)
