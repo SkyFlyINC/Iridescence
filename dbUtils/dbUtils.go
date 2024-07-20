@@ -108,7 +108,7 @@ func DbInit(confData config.Config) {
 				time BIGINT unsigned DEFAULT NULL,
 				messageBody text DEFAULT NULL,
 				messageType smallint unsigned DEFAULT NULL,
-				PRIMARY KEY (messageID) USING BTREE,
+				PRIMARY KEY (offlineMessageID) USING BTREE,
 				KEY idx_senderID (senderID)
 			  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;`
 		_, err := db.Exec(createTable)
@@ -128,7 +128,7 @@ func DbInit(confData config.Config) {
 				time BIGINT unsigned DEFAULT NULL,
 				messageBody text DEFAULT NULL,
 				messageType smallint unsigned DEFAULT NULL,
-				PRIMARY KEY (messageID) USING BTREE,
+				PRIMARY KEY (offlineGroupMessageID) USING BTREE,
 				KEY idx_senderID (senderID)
 			  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;`
 		_, err := db.Exec(createTable)
