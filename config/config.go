@@ -69,18 +69,18 @@ type DefaultHomePageData struct {
 //TO be continued (TODO)
 
 type Config struct {
-	LogLevel int    `json:"logLevel"`
-	Port     string `json:"port"`
-	DataBaseSettings
-	Rotes
-	WebsocketConnBufferSize          int      `json:"websocketConnBufferSize"`
-	WebSocketHeartbeatTimeoutSeconds int      `json:"webSocketHeartbeatTimeoutSeconds"`
-	SaltLength                       int      `json:"saltLength"`
-	TokenLength                      int      `json:"tokenLength"`
-	AuthorizedServerTokens           []string `json:"authorizedServerTokens"`
-	TokenExpiryHours                 float64  `json:"tokenExpiryHours"`
-	UserSettings
-	Commands
+	LogLevel                         int              `json:"logLevel"`
+	Port                             string           `json:"port"`
+	DataBaseSettings                 DataBaseSettings `json:"DataBaseSettings"`
+	Rotes                            Rotes            `json:"Rotes"`
+	WebsocketConnBufferSize          int              `json:"websocketConnBufferSize"`
+	WebSocketHeartbeatTimeoutSeconds int              `json:"webSocketHeartbeatTimeoutSeconds"`
+	SaltLength                       int              `json:"saltLength"`
+	TokenLength                      int              `json:"tokenLength"`
+	AuthorizedServerTokens           []string         `json:"authorizedServerTokens"`
+	TokenExpiryHours                 float64          `json:"tokenExpiryHours"`
+	UserSettings                     UserSettings     `json:"UserSettings"`
+	Commands                         Commands         `json:"Commands"`
 }
 
 // LoadConfig 从指定的文件路径加载配置文件，如果文件不存在则创建并写入默认配置

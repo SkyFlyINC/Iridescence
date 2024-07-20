@@ -26,13 +26,24 @@ func SaveUserToDB(username, hashedPassword string, salt []byte) (int64, error) {
 	return userID, nil
 }
 
-// SaveOfflineMessageToDB 返回messageID
-func SaveOfflineMessageToDB(userID int, recipientID int, messageContent string, messageType int) (int, error) {
-	insertQuery := "INSERT INTO offlinemessages (senderID,receiverID,messageBody,time,messageType) VALUES (?,?,?,?,?)"
+// 消息的两种基本状态
+const (
+	Unread = iota
+	Read
+)
+
+// 群消息的自定义状态
+type ExtraDataForGroupMessage struct {
+	State     int             `json:"state"`
+	ExtraJSON json.RawMessage `json:"extraJSON"`
+}
+
+func SaveMessageToDB(userID int, recipientID int, messageContent string, messageType int) (int, error) {
+	insertQuery := "INSERT INTO messages (senderID,receiverID,messageBody,time,messageType,state) VALUES (?,?,?,?,?,?)"
 	timestamp := time.Now().UnixNano() //纳秒事件戳
-	result, err := db.Exec(insertQuery, userID, recipientID, messageContent, timestamp, messageType)
+	result, err := db.Exec(insertQuery, userID, recipientID, messageContent, timestamp, messageType, Unread)
 	if err != nil {
-		logger.Error("保存用户离线消息时出现错误", err)
+		logger.Error("保存用户消息时出现错误", err)
 		return 0, err
 	}
 
@@ -44,22 +55,61 @@ func SaveOfflineMessageToDB(userID int, recipientID int, messageContent string, 
 
 	return int(messageID), nil
 }
-func SaveOfflineGroupMessageToDB(userID int, recipientID int, messageContent string, messageType int) (int, error) {
-	insertQuery := "INSERT INTO offlinegroupmessages (senderID,receiverID,messageBody,time,messageType) VALUES (?,?,?,?,?)"
+
+func SaveGroupMessageToDB(userID int, recipientID int, messageContent string, messageType int) (int, error) {
+	insertQuery := "INSERT INTO groupmessages (senderID,receiverID,messageBody,time,messageType,extra) VALUES (?,?,?,?,?,?)"
 	timestamp := time.Now().UnixNano() //纳秒事件戳
-	result, err := db.Exec(insertQuery, userID, recipientID, messageContent, timestamp, messageType)
+	result, err := db.Exec(insertQuery, userID, recipientID, messageContent, timestamp, messageType, ExtraDataForGroupMessage{
+		State: Unread,
+	})
 	if err != nil {
-		logger.Error("保存群聊离线消息时出现错误", err)
+		logger.Error("保存用户消息时出现错误", err)
 		return 0, err
 	}
 
 	messageID, err := result.LastInsertId()
 	if err != nil {
-		logger.Error("获取群聊插入消息的ID时出现错误", err)
+		logger.Error("获取插入消息的ID时出现错误", err)
 		return 0, err
 	}
 
 	return int(messageID), nil
+}
+
+// SaveOfflineMessageToDB 返回messageID
+func SaveOfflineMessageToDB(messageID int, userID int, recipientID int, messageContent string, messageType int) (int, error) {
+	insertQuery := "INSERT INTO offlinemessages (messageID ,senderID,receiverID,messageBody,time,messageType) VALUES (?,?,?,?,?,?)"
+	timestamp := time.Now().UnixNano() //纳秒事件戳
+	result, err := db.Exec(insertQuery, messageID, userID, recipientID, messageContent, timestamp, messageType)
+	if err != nil {
+		logger.Error("保存用户离线消息时出现错误", err)
+		return 0, err
+	}
+
+	offlineMessageID, err := result.LastInsertId()
+	if err != nil {
+		logger.Error("获取插入消息的ID时出现错误", err)
+		return 0, err
+	}
+
+	return int(offlineMessageID), nil
+}
+func SaveOfflineGroupMessageToDB(groupMessageID int, userID int, recipientID int, messageContent string, messageType int) (int, error) {
+	insertQuery := "INSERT INTO offlinegroupmessages (groupMessageID,senderID,receiverID,messageBody,time,messageType) VALUES (?,?,?,?,?,?)"
+	timestamp := time.Now().UnixNano() //纳秒事件戳
+	result, err := db.Exec(insertQuery, groupMessageID, userID, recipientID, messageContent, timestamp, messageType)
+	if err != nil {
+		logger.Error("保存群聊离线消息时出现错误", err)
+		return 0, err
+	}
+
+	offlineGroupMessageID, err := result.LastInsertId()
+	if err != nil {
+		logger.Error("获取群聊插入消息的ID时出现错误", err)
+		return 0, err
+	}
+
+	return int(offlineGroupMessageID), nil
 }
 
 func GetDBPasswordHash(userID int) (string, []byte, error) {

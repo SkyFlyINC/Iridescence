@@ -283,3 +283,14 @@ type GetPostsResponse struct {
 type BroadcastMessage struct {
 	Message string `json:"message"`
 }
+
+//Events
+
+type UserStateEvent struct {
+	UserID    int `json:"userId"`
+	UserState int `json:"userState"`
+}
+
+type ChangeStateRequest struct {
+	UserState int `json:"userState"`
+}

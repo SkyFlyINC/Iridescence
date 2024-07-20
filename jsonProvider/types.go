@@ -39,3 +39,11 @@ type Group struct {
 	GroupID   int
 }
 type GroupList []Group
+
+type GroupMember struct {
+	UserID     int             `json:"userId"`
+	Permission int             `json:"permission"`
+	Extra      json.RawMessage `json:"extra"`
+}
+
+type GroupMembers []GroupMember

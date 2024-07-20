@@ -101,7 +101,8 @@ func DbInit(confData config.Config) {
 		UseDB(db, _BasicChatDBName)
 		logger.Warn("找不到离线消息数据表，自动创建")
 		createTable := `CREATE TABLE offlinemessages (
-    			messageID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    			offlineMessageID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+				messageID int unsigned NOT NULL,
     			senderID int unsigned NOT NULL,
 				receiverID int unsigned NOT NULL,
 				time BIGINT unsigned DEFAULT NULL,
@@ -119,9 +120,11 @@ func DbInit(confData config.Config) {
 		UseDB(db, _BasicChatDBName)
 		logger.Warn("找不到离线群消息数据表，自动创建")
 		createTable := `CREATE TABLE offlinegroupmessages (
-    			messageID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+				offlineGroupMessageID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+				groupMessageID int unsigned NOT NULL,
     			senderID int unsigned NOT NULL,
 				receiverID int unsigned NOT NULL,
+				groupID int unsigned NOT NULL,
 				time BIGINT unsigned DEFAULT NULL,
 				messageBody text DEFAULT NULL,
 				messageType smallint unsigned DEFAULT NULL,
@@ -152,13 +155,13 @@ func DbInit(confData config.Config) {
 			logger.Error("Failed to create table:", err)
 		}
 	}
-	if CheckTableExistence(db, _BasicChatDBName, "groupmessagees") == 0 {
+	if CheckTableExistence(db, _BasicChatDBName, "groupmessages") == 0 {
 		UseDB(db, _BasicChatDBName)
 		logger.Warn("找不到群消息数据表，自动创建")
 		createTable := `CREATE TABLE groupmessagees (
     			messageID INT UNSIGNED NOT NULL AUTO_INCREMENT,
     			senderID int unsigned NOT NULL,
-				receiverID int unsigned NOT NULL,
+				groupID int unsigned NOT NULL,
 				time BIGINT unsigned DEFAULT NULL,
 				messageBody text DEFAULT NULL,
 				messageType smallint unsigned DEFAULT NULL,

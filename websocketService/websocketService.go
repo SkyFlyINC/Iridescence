@@ -284,29 +284,28 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			//获取基本信息
 			var receivedPack jsonprovider.SendMessageRequest
 			jsonprovider.ParseJSON(pre.Content, &receivedPack)
-			recipientID := receivedPack.TargetID
-			messageContent := receivedPack.MessageBody
-			requestMessageID := receivedPack.RequestID
 			timeStamp := int(time.Now().UnixNano())
 			//保存到数据库，获取消息ID
-			var messageID int
-			messageID, err = dbUtils.SaveOfflineMessageToDB(userID, recipientID, messageContent, UserMessage)
+			messageID, err := dbUtils.SaveMessageToDB(userID, receivedPack.TargetID, receivedPack.MessageBody, UserMessage)
 			if err != nil {
-				logger.Error("用户", recipientID, "发送信息时数据库插入失败")
+				logger.Error("用户", receivedPack.TargetID, "发送信息时数据库插入失败")
 				break
 			}
-			//构造发送数据包
-			sendingPack := &jsonprovider.SendMessageToTargetPack{
+			// 向指定用户发送消息
+			isSent, msgerr := sendJSONToUser(receivedPack.TargetID, &jsonprovider.SendMessageToTargetPack{
 				SenderID:    userID,
 				MessageID:   messageID,
-				MessageBody: messageContent,
+				MessageBody: receivedPack.MessageBody,
 				TimeStamp:   timeStamp,
-			}
-			// 向指定用户发送消息
-			isSent, msgerr := sendMessageToUser(recipientID, []byte(jsonprovider.SdandarlizeJSON_byte(configData.Commands.MessageFromUser, sendingPack)))
+			}, configData.Commands.SendUserMessage)
 			if !isSent {
 				if msgerr == nil {
-					logger.Info("用户", recipientID, "不在线，已保存到离线消息")
+					logger.Info("用户", receivedPack.TargetID, "不在线，已保存到离线消息") //用原来消息的ID保存到离线消息表中
+					_, err := dbUtils.SaveOfflineMessageToDB(messageID, userID, receivedPack.TargetID, receivedPack.MessageBody, UserMessage)
+					if err != nil {
+						logger.Error("保存离线消息失败", err)
+						state = jsonprovider.ServerSendError
+					}
 					state = jsonprovider.UserIsNotOnline
 				} else {
 					state = jsonprovider.ServerSendError
@@ -316,7 +315,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			//回发
 			sendJSONToUser(userID, jsonprovider.SendMessageResponse{
-				RequestID: requestMessageID,
+				RequestID: receivedPack.RequestID,
 				MessageID: messageID,
 				TimeStamp: timeStamp,
 				State:     state,
@@ -328,7 +327,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			// 保存消息到数据库
 			timeStamp := int(time.Now().UnixNano())
 			var messageID int
-			messageID, err = dbUtils.SaveOfflineGroupMessageToDB(userID, int(req.GroupID), req.MessageBody, UserMessage)
+			messageID, err = dbUtils.SaveGroupMessageToDB(userID, int(req.GroupID), req.MessageBody, UserMessage)
 			if err != nil {
 				logger.Error("用户发送群消息时数据库插入失败")
 				connState = false
@@ -344,12 +343,18 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			// 向所有群成员发送消息
 			for _, memberID := range groupMembers {
-				sendJSONToUser(memberID, jsonprovider.SendMessageToGroupPack{
+				onlineState, msgerr := sendJSONToUser(memberID, jsonprovider.SendMessageToGroupPack{
 					SenderID:    userID,
 					MessageID:   messageID,
 					MessageBody: req.MessageBody,
 					TimeStamp:   timeStamp,
 				}, configData.Commands.MessageFromGroup)
+				if !onlineState {
+					if msgerr == nil {
+						logger.Info("群聊中", memberID, "不在线，已保存到离线消息") //用原来消息的ID保存到离线消息表中
+						dbUtils.SaveOfflineGroupMessageToDB(messageID, userID, memberID, req.MessageBody, UserMessage)
+					}
+				}
 			}
 
 			sendJSONToUser(userID, jsonprovider.SendGroupMessageResponse{
@@ -448,10 +453,14 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 创建新的群聊成员列表
-			groupMembers := []int{userID}
+			var groupMembers jsonprovider.GroupMembers
+			groupMembers = append(groupMembers, jsonprovider.GroupMember{
+				UserID:     userID,
+				Permission: jsonprovider.Owner,
+			})
 
 			// 更新群聊的成员列表
-			groupMembersJSON, _ := json.Marshal(groupMembers)
+			groupMembersJSON := jsonprovider.StringifyJSON(groupMembers)
 			_, err = db.Exec("UPDATE groupdatatable SET groupMembers = ? WHERE groupID = ?", groupMembersJSON, groupID)
 			if err != nil {
 				logger.Error("Failed to update group members:", err)
@@ -469,6 +478,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			// 在数据库中删除群聊
 			_, err := db.Exec("DELETE FROM groupdatatable WHERE groupID = ? AND groupMaster = ?", req.GroupID, userID)
+			//只有群主有权限解散群聊
 			if err != nil {
 				logger.Error("Failed to break group:", err)
 				return
@@ -494,7 +504,27 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			sendJSONToUser(userID, res, configData.Commands.GetUserData)
 		case configData.Commands.MessageEvent:
 		case configData.Commands.UserStateEvent: //不具备缓存性质
+			var req jsonprovider.ChangeStateRequest
+			jsonprovider.ParseJSON(pre.Content, &req)
+			ClientsLock.Lock()
+			Clients[userID].UserState = &req.UserState
+			ClientsLock.Unlock()
+			var friends []int
+			jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
+			var state int
+			if *Clients[userID].UserState != jsonprovider.Stealth {
+				state = *Clients[userID].UserState
+			} else {
+				state = jsonprovider.Offline
+			}
+			for _, friendId := range friends {
 
+				sendJSONToUser(friendId, jsonprovider.UserStateEvent{
+					UserID:    friendId,
+					UserState: state,
+				}, configData.Commands.UserStateEvent)
+
+			}
 		case configData.Commands.GetOfflineMessage:
 			handleGetOfflineMessages(userID)
 		case configData.Commands.GetMessagesWithUser:
@@ -560,10 +590,23 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// 在此处删除映射关系
 	connState = false
 	if Logined {
+
+		var friends []int
+		jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
+
+		for _, friendId := range friends {
+			if *Clients[userID].UserState != jsonprovider.Stealth {
+				sendJSONToUser(friendId, jsonprovider.UserStateEvent{
+					UserID:    friendId,
+					UserState: jsonprovider.Offline,
+				}, configData.Commands.UserStateEvent)
+			}
+		}
 		ClientsLock.Lock()
 		delete(Clients, userID)
 		ClientsLock.Unlock()
 		logger.Info("用户", userID, "已断开连接")
+
 	}
 
 }
@@ -579,12 +622,13 @@ func BroadcastMessage(message []byte) {
 	}
 }
 
-func sendJSONToUser(userID int, msg interface{}, command string) {
+func sendJSONToUser(userID int, msg interface{}, command string) (bool, error) {
 	message := jsonprovider.SdandarlizeJSON_byte(command, msg)
-	_, err := sendMessageToUser(userID, []byte(message))
+	userOnline, err := sendMessageToUser(userID, []byte(message))
 	if err != nil {
 		logger.Error("err in func sendJSONToUser :", err)
 	}
+	return userOnline, err
 }
 
 func sendMessageToUser(userID int, message []byte) (bool, error) {
