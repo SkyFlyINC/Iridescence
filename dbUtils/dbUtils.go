@@ -158,7 +158,7 @@ func DbInit(confData config.Config) {
 	if CheckTableExistence(db, _BasicChatDBName, "groupmessages") == 0 {
 		UseDB(db, _BasicChatDBName)
 		logger.Warn("找不到群消息数据表，自动创建")
-		createTable := `CREATE TABLE groupmessagees (
+		createTable := `CREATE TABLE groupmessages (
     			messageID INT UNSIGNED NOT NULL AUTO_INCREMENT,
     			senderID int unsigned NOT NULL,
 				groupID int unsigned NOT NULL,
