@@ -58,12 +58,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
+
 	if err != nil {
 		logger.Error("WebSocket upgrade failed:", err)
 		return
@@ -597,6 +592,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	connState = false
 	if Logined {
 
+		ClientsLock.Lock()
 		var friends []int
 		jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
 
@@ -608,13 +604,17 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				}, configData.Commands.UserStateEvent)
 			}
 		}
-		ClientsLock.Lock()
 		delete(Clients, userID)
 		ClientsLock.Unlock()
 		logger.Info("用户", userID, "已断开连接")
 
 	}
-
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			logger.Error(err)
+		}
+	}()
 }
 
 func BroadcastMessage(message []byte) {
