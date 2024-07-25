@@ -18,7 +18,7 @@ import (
 
 var (
 	Clients     = make(map[int]*jsonprovider.User) // 保存用户ID与用户结构体的映射关系
-	ClientsLock sync.Mutex                         // 用于保护映射关系的互斥锁
+	ClientsLock sync.RWMutex                       // 用于保护映射关系的读写锁
 )
 
 var (
@@ -66,6 +66,18 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	Logined := false
 	var userID int
 	var useHeartPack bool = true
+	defer func() {
+		if Logined {
+			withClientsLock(func() {})
+			logger.Info("用户", userID, "已断开连接")
+
+		}
+		logger.Debug("连接被服务器主动关闭")
+		err := conn.Close()
+		if err != nil {
+			logger.Error(err)
+		}
+	}()
 	// 处理WebSocket消息
 	for !Logined {
 		_, message, err := conn.ReadMessage()
@@ -139,9 +151,10 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 					}
 
 					// 保存到clients map中
-					ClientsLock.Lock()
-					Clients[userID] = user
-					ClientsLock.Unlock()
+					// 使用辅助函数处理锁定和解锁
+					withClientsLock(func() {
+						Clients[userID] = user
+					})
 
 					res = jsonprovider.LoginResponse{
 						StandardResponsePack: jsonprovider.StandardResponsePack{
@@ -272,9 +285,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			jsonprovider.ParseJSON(pre.Content, &onlineStateRequest)
 
 			// 检查用户在线状态
-			ClientsLock.Lock()
+			ClientsLock.RLock()
 			user, exists := Clients[onlineStateRequest.UserID]
-			ClientsLock.Unlock()
+			ClientsLock.RUnlock()
 			isOnline := exists && user.Conn != nil
 			sendJSONToUser(userID, jsonprovider.CheckUserOnlineStateResponse{
 				UserID:   onlineStateRequest.UserID,
@@ -507,9 +520,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		case configData.Commands.UserStateEvent: //不具备缓存性质
 			var req jsonprovider.ChangeStateRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
-			ClientsLock.Lock()
-			Clients[userID].UserState = &req.UserState
-			ClientsLock.Unlock()
+			withClientsLock(func() {
+				Clients[userID].UserState = &req.UserState
+			})
 			var friends []int
 			jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
 			var state int
@@ -589,43 +602,19 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// 用户断开连接
 	// 在此处删除映射关系
+	logger.Debug("进入断线程序")
 	connState = false
-	if Logined {
 
-		ClientsLock.Lock()
-		var friends []int
-		jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
-
-		for _, friendId := range friends {
-			if *Clients[userID].UserState != jsonprovider.Stealth {
-				sendJSONToUser(friendId, jsonprovider.UserStateEvent{
-					UserID:    friendId,
-					UserState: jsonprovider.Offline,
-				}, configData.Commands.UserStateEvent)
-			}
-		}
-		delete(Clients, userID)
-		ClientsLock.Unlock()
-		logger.Info("用户", userID, "已断开连接")
-
-	}
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
 }
 
 func BroadcastMessage(message []byte) {
-	ClientsLock.Lock()
-	defer ClientsLock.Unlock()
-
+	ClientsLock.RLock()
 	for _, client := range Clients {
 		sendJSONToUser(client.UserId, jsonprovider.BroadcastMessage{
 			Message: string(message),
 		}, configData.Commands.BroadcastMessage)
 	}
+	ClientsLock.RUnlock()
 }
 
 func sendJSONToUser(userID int, msg interface{}, command string) (bool, error) {
@@ -638,8 +627,7 @@ func sendJSONToUser(userID int, msg interface{}, command string) (bool, error) {
 }
 
 func sendMessageToUser(userID int, message []byte) (bool, error) {
-	ClientsLock.Lock()
-	defer ClientsLock.Unlock()
+	ClientsLock.RLock()
 
 	client, ok := Clients[userID]
 	if !ok {
@@ -653,7 +641,7 @@ func sendMessageToUser(userID int, message []byte) (bool, error) {
 		// 处理发送消息失败的情况
 		return false, err
 	}
-
+	ClientsLock.RUnlock()
 	return true, nil
 }
 func handleGetOfflineMessages(userID int) {
@@ -691,4 +679,17 @@ func handleGetOfflineMessages(userID int) {
 		State:    true,
 		Messages: messages,
 	}, configData.Commands.GetOfflineMessage)
+}
+
+func withClientsLock(action func()) {
+	logger.Debug("互斥锁锁定")
+	ClientsLock.Lock()
+	action()
+	defer ClientsLock.Unlock()
+	logger.Debug("互斥锁解锁")
+}
+func withClientsRLock(action func()) {
+	ClientsLock.RLock()
+	defer ClientsLock.RUnlock()
+	action()
 }
