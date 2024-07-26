@@ -42,10 +42,10 @@ type SignUpResponse struct {
 	Userid int `json:"userId"`
 }
 type SendMessageRequest struct {
-	TargetID         int    `json:"targetId"`    //消息接收人
-	RequestID        int    `json:"requestId"`   //request ID由客户端生成
-	MessageBody      string `json:"messageBody"` //消息体
-	RequestTimeStamp int    `json:"time"`        //判断请求是否合法，是否超时
+	TargetID         int             `json:"targetId"`    //消息接收人
+	RequestID        int             `json:"requestId"`   //request ID由客户端生成
+	MessageBody      json.RawMessage `json:"messageBody"` //消息体
+	RequestTimeStamp int             `json:"time"`        //判断请求是否合法，是否超时
 }
 
 // SendMessageResponse 实现ACK机制
