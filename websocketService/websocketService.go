@@ -68,7 +68,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	var useHeartPack bool = true
 	defer func() {
 		if Logined {
-			ClientsLock.Lock()
 			var friends []int
 			jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
 			for _, friendId := range friends {
@@ -82,7 +81,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			delete(Clients, userID)
-			defer ClientsLock.Unlock()
 			logger.Info("用户", userID, "已断开连接")
 
 		}
