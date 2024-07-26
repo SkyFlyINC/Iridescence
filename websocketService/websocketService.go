@@ -435,6 +435,28 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Error("Failed to update friend list:", err)
 			}
+			//////////////////////////////////////////////////////////
+			// 获取用户的朋友列表
+			friendListOfFriend := Clients[req.FriendID].UserFriendList
+			var Ofriends []int
+			err = json.Unmarshal(friendListOfFriend, &Ofriends)
+			if err != nil {
+				logger.Error("Failed to update friend list:", err)
+				break
+			}
+
+			// 添加新朋友
+			friends = append(friends, req.FriendID)
+
+			// 更新朋友列表
+			newOFriendList, _ := json.Marshal(friends)
+			Clients[req.FriendID].UserFriendList = newOFriendList
+
+			// 更新数据库
+			_, err = db.Exec("UPDATE userdatatable SET userFriendList = ? WHERE userID = ?", newOFriendList, Ofriends)
+			if err != nil {
+				logger.Error("Failed to update friend list:", err)
+			}
 
 			sendJSONToUserWithRlock(userID, jsonprovider.AddFriendResponse{
 				UserID:   userID,
