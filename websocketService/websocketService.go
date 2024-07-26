@@ -82,8 +82,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			delete(Clients, userID)
-			ClientsLock.Unlock()
+			defer ClientsLock.Unlock()
 			logger.Info("用户", userID, "已断开连接")
+
 		}
 		logger.Debug("连接被服务器主动关闭")
 		err := conn.Close()
