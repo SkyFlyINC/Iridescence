@@ -446,12 +446,14 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// 添加新朋友
-			friends = append(friends, req.FriendID)
+			Ofriends = append(Ofriends, userID)
 
 			// 更新朋友列表
-			newOFriendList, _ := json.Marshal(friends)
-			Clients[req.FriendID].UserFriendList = newOFriendList
-
+			newOFriendList, _ := json.Marshal(Ofriends)
+			_, exists := Clients[req.FriendID]
+			if exists {
+				Clients[req.FriendID].UserFriendList = newOFriendList
+			}
 			// 更新数据库
 			_, err = db.Exec("UPDATE userdatatable SET userFriendList = ? WHERE userID = ?", newOFriendList, Ofriends)
 			if err != nil {
