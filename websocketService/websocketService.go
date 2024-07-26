@@ -68,19 +68,20 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	var useHeartPack bool = true
 	defer func() {
 		if Logined {
-			withClientsLock(func() {
-				var friends []int
-				jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
-				for _, friendId := range friends {
-					if *Clients[userID].UserState != jsonprovider.Stealth {
-						sendJSONToUser(friendId, jsonprovider.UserStateEvent{
-							UserID:    friendId,
-							UserState: jsonprovider.Offline,
-						}, configData.Commands.UserStateEvent)
-					}
+			var friends []int
+			jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
+			for _, friendId := range friends {
+				if *Clients[userID].UserState != jsonprovider.Stealth {
+					sendJSONToUserWithRlock(friendId, jsonprovider.UserStateEvent{
+						UserID:    friendId,
+						UserState: jsonprovider.Offline,
+					}, configData.Commands.UserStateEvent)
 				}
-				delete(Clients, userID)
-			})
+				logger.Debug("向", friendId, "发送断线消息")
+			}
+			ClientsLock.Lock()
+			delete(Clients, userID)
+			ClientsLock.Unlock()
 			logger.Info("用户", userID, "已断开连接")
 
 		}
@@ -307,7 +308,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				userState = *Clients[onlineStateRequest.UserID].UserState
 			}
 			withClientsLock(func() {
-				sendJSONToUser(userID, jsonprovider.UserStateEvent{
+				sendJSONToUserWithRlock(userID, jsonprovider.UserStateEvent{
 					UserID:    userID,
 					UserState: userState,
 				}, configData.Commands.UserStateEvent)
@@ -326,7 +327,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			// 向指定用户发送消息
-			isSent, msgerr := sendJSONToUser(receivedPack.TargetID, &jsonprovider.SendMessageToTargetPack{
+			isSent, msgerr := sendJSONToUserWithRlock(receivedPack.TargetID, &jsonprovider.SendMessageToTargetPack{
 				SenderID:    userID,
 				MessageID:   messageID,
 				MessageBody: receivedPack.MessageBody,
@@ -348,7 +349,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				state = jsonprovider.UserReceived
 			}
 			//回发
-			sendJSONToUser(userID, jsonprovider.SendMessageResponse{
+			sendJSONToUserWithRlock(userID, jsonprovider.SendMessageResponse{
 				RequestID: receivedPack.RequestID,
 				MessageID: messageID,
 				TimeStamp: timeStamp,
@@ -377,7 +378,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			// 向所有群成员发送消息
 			for _, memberID := range groupMembers {
-				onlineState, msgerr := sendJSONToUser(memberID, jsonprovider.SendMessageToGroupPack{
+				onlineState, msgerr := sendJSONToUserWithRlock(memberID, jsonprovider.SendMessageToGroupPack{
 					SenderID:    userID,
 					MessageID:   messageID,
 					MessageBody: req.MessageBody,
@@ -391,7 +392,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			sendJSONToUser(userID, jsonprovider.SendGroupMessageResponse{
+			sendJSONToUserWithRlock(userID, jsonprovider.SendGroupMessageResponse{
 				RequestID: req.RequestID,
 				MessageID: messageID,
 				TimeStamp: timeStamp,
@@ -423,7 +424,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to update friend list:", err)
 			}
 
-			sendJSONToUser(userID, jsonprovider.AddFriendResponse{
+			sendJSONToUserWithRlock(userID, jsonprovider.AddFriendResponse{
 				UserID:   userID,
 				FriendID: req.FriendID,
 				StandardResponsePack: jsonprovider.StandardResponsePack{
@@ -460,7 +461,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to update friend list:", err)
 			}
 
-			sendJSONToUser(userID, jsonprovider.DeleteFriendResponse{
+			sendJSONToUserWithRlock(userID, jsonprovider.DeleteFriendResponse{
 				UserID:   userID,
 				FriendID: req.FriendID,
 				StandardResponsePack: jsonprovider.StandardResponsePack{
@@ -500,7 +501,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to update group members:", err)
 			}
 
-			sendJSONToUser(userID, jsonprovider.CreateGroupResponse{
+			sendJSONToUserWithRlock(userID, jsonprovider.CreateGroupResponse{
 				GroupID: groupID,
 				StandardResponsePack: jsonprovider.StandardResponsePack{
 					Success: err == nil,
@@ -518,7 +519,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			sendJSONToUser(userID, jsonprovider.BreakGroupResponse{
+			sendJSONToUserWithRlock(userID, jsonprovider.BreakGroupResponse{
 				GroupID: req.GroupID,
 				StandardResponsePack: jsonprovider.StandardResponsePack{
 					Success: err == nil,
@@ -535,7 +536,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to get user data:", err)
 				return
 			}
-			sendJSONToUser(userID, res, configData.Commands.GetUserData)
+			sendJSONToUserWithRlock(userID, res, configData.Commands.GetUserData)
 		case configData.Commands.MessageEvent:
 		case configData.Commands.UserStateEvent: //不具备缓存性质
 			var req jsonprovider.ChangeStateRequest
@@ -553,7 +554,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			for _, friendId := range friends {
 
-				sendJSONToUser(friendId, jsonprovider.UserStateEvent{
+				sendJSONToUserWithRlock(friendId, jsonprovider.UserStateEvent{
 					UserID:    friendId,
 					UserState: state,
 				}, configData.Commands.UserStateEvent)
@@ -587,7 +588,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Error(err)
 			}
-			sendJSONToUser(userID, jsonprovider.GetMessagesWithUserResponse{
+			sendJSONToUserWithRlock(userID, jsonprovider.GetMessagesWithUserResponse{
 				UserID:   userID,
 				Messages: messages,
 			}, configData.Commands.GetMessagesWithUser)
@@ -605,7 +606,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				logger.Error("Failed to update avatar:", err)
 			}
 			// 发送响应
-			sendJSONToUser(userID, jsonprovider.ChangeAvatarResponse{
+			sendJSONToUserWithRlock(userID, jsonprovider.ChangeAvatarResponse{
 				UserID:    userID,
 				NewAvatar: req.NewAvatar,
 				StandardResponsePack: jsonprovider.StandardResponsePack{
@@ -630,14 +631,14 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 func BroadcastMessage(message []byte) {
 	ClientsLock.RLock()
 	for _, client := range Clients {
-		sendJSONToUser(client.UserId, jsonprovider.BroadcastMessage{
+		sendJSONToUserWithRlock(client.UserId, jsonprovider.BroadcastMessage{
 			Message: string(message),
 		}, configData.Commands.BroadcastMessage)
 	}
 	ClientsLock.RUnlock()
 }
 
-func sendJSONToUser(userID int, msg interface{}, command string) (bool, error) {
+func sendJSONToUserWithRlock(userID int, msg interface{}, command string) (bool, error) {
 	message := jsonprovider.SdandarlizeJSON_byte(command, msg)
 	userOnline, err := sendMessageToUser(userID, []byte(message))
 	if err != nil {
@@ -695,7 +696,7 @@ func handleGetOfflineMessages(userID int) {
 	}
 
 	// 创建响应
-	sendJSONToUser(userID, jsonprovider.GetOfflineMessagesResponse{
+	sendJSONToUserWithRlock(userID, jsonprovider.GetOfflineMessagesResponse{
 		State:    true,
 		Messages: messages,
 	}, configData.Commands.GetOfflineMessage)
