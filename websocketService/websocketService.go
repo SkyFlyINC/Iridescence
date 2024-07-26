@@ -68,7 +68,19 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	var useHeartPack bool = true
 	defer func() {
 		if Logined {
-			withClientsLock(func() {})
+			withClientsLock(func() {
+				var friends []int
+				jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
+				for _, friendId := range friends {
+					if *Clients[userID].UserState != jsonprovider.Stealth {
+						sendJSONToUser(friendId, jsonprovider.UserStateEvent{
+							UserID:    friendId,
+							UserState: jsonprovider.Offline,
+						}, configData.Commands.UserStateEvent)
+					}
+				}
+				delete(Clients, userID)
+			})
 			logger.Info("用户", userID, "已断开连接")
 
 		}
@@ -288,11 +300,19 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			ClientsLock.RLock()
 			user, exists := Clients[onlineStateRequest.UserID]
 			ClientsLock.RUnlock()
+
 			isOnline := exists && user.Conn != nil
-			sendJSONToUser(userID, jsonprovider.CheckUserOnlineStateResponse{
-				UserID:   onlineStateRequest.UserID,
-				IsOnline: isOnline,
-			}, configData.Commands.CheckUserOnlineState)
+			userState := jsonprovider.Offline
+			if isOnline {
+				userState = *Clients[onlineStateRequest.UserID].UserState
+			}
+			withClientsLock(func() {
+				sendJSONToUser(userID, jsonprovider.UserStateEvent{
+					UserID:    userID,
+					UserState: userState,
+				}, configData.Commands.UserStateEvent)
+			})
+
 		case configData.Commands.SendUserMessage:
 			var state int
 			//获取基本信息
