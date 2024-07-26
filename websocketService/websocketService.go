@@ -437,7 +437,19 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			//////////////////////////////////////////////////////////
 			// 获取用户的朋友列表
-			friendListOfFriend := Clients[req.FriendID].UserFriendList
+			var friendListOfFriend json.RawMessage
+
+			_, exists := Clients[req.FriendID]
+			if exists {
+				friendListOfFriend = Clients[req.FriendID].UserFriendList
+			} else {
+				err = db.QueryRow("SELECT userFriendList FROM userdatatable WHERE userID = ?", req.FriendID).Scan(&friendListOfFriend)
+				if err != nil {
+					logger.Error("获取好友数据失败:", err)
+					continue
+				}
+			}
+
 			var Ofriends []int
 			err = json.Unmarshal(friendListOfFriend, &Ofriends)
 			if err != nil {
@@ -450,12 +462,13 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			// 更新朋友列表
 			newOFriendList, _ := json.Marshal(Ofriends)
-			_, exists := Clients[req.FriendID]
+
 			if exists {
 				Clients[req.FriendID].UserFriendList = newOFriendList
 			}
+
 			// 更新数据库
-			_, err = db.Exec("UPDATE userdatatable SET userFriendList = ? WHERE userID = ?", newOFriendList, Ofriends)
+			_, err = db.Exec("UPDATE userdatatable SET userFriendList = ? WHERE userID = ?", newOFriendList, req.FriendID)
 			if err != nil {
 				logger.Error("Failed to update friend list:", err)
 			}
