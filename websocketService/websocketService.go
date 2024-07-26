@@ -176,7 +176,20 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 						UserData: user,
 					}
 					logger.Debug("用户", userID, "登录成功")
+
 					Logined = true
+
+					var friends []int
+					jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
+					for _, friendId := range friends {
+						if *Clients[userID].UserState != jsonprovider.Stealth {
+							sendJSONToUserWithRlock(friendId, jsonprovider.UserStateEvent{
+								UserID:    friendId,
+								UserState: userState,
+							}, configData.Commands.UserStateEvent)
+						}
+						logger.Debug("向", friendId, "发送上线消息")
+					}
 				} else {
 					res = jsonprovider.LoginResponse{
 						StandardResponsePack: jsonprovider.StandardResponsePack{
