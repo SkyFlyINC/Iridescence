@@ -184,7 +184,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 					for _, friendId := range friends {
 						if *Clients[userID].UserState != jsonprovider.Stealth {
 							sendJSONToUserWithRlock(friendId, jsonprovider.UserStateEvent{
-								UserID:    friendId,
+								UserID:    userID,
 								UserState: userState,
 							}, configData.Commands.UserStateEvent)
 						}
