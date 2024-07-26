@@ -65,10 +65,10 @@ const (
 )
 
 type SendMessageToTargetPack struct {
-	SenderID    int    `json:"senderId"`
-	MessageID   int    `json:"messageId"`
-	MessageBody string `json:"messageBody"`
-	TimeStamp   int    `json:"time"`
+	SenderID    int             `json:"senderId"`
+	MessageID   int             `json:"messageId"`
+	MessageBody json.RawMessage `json:"messageBody"`
+	TimeStamp   int             `json:"time"`
 }
 type SendMessagePackResponseFromUser struct {
 	StandardResponsePack

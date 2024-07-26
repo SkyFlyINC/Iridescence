@@ -38,7 +38,7 @@ type ExtraDataForGroupMessage struct {
 	ExtraJSON json.RawMessage `json:"extraJSON"`
 }
 
-func SaveMessageToDB(userID int, recipientID int, messageContent string, messageType int) (int, error) {
+func SaveMessageToDB(userID int, recipientID int, messageContent json.RawMessage, messageType int) (int, error) {
 	insertQuery := "INSERT INTO messages (senderID,receiverID,messageBody,time,messageType,state) VALUES (?,?,?,?,?,?)"
 	timestamp := time.Now().UnixNano() //纳秒事件戳
 	result, err := db.Exec(insertQuery, userID, recipientID, messageContent, timestamp, messageType, Unread)
@@ -77,7 +77,7 @@ func SaveGroupMessageToDB(userID int, recipientID int, messageContent string, me
 }
 
 // SaveOfflineMessageToDB 返回messageID
-func SaveOfflineMessageToDB(messageID int, userID int, recipientID int, messageContent string, messageType int) (int, error) {
+func SaveOfflineMessageToDB(messageID int, userID int, recipientID int, messageContent json.RawMessage, messageType int) (int, error) {
 	insertQuery := "INSERT INTO offlinemessages (messageID ,senderID,receiverID,messageBody,time,messageType) VALUES (?,?,?,?,?,?)"
 	timestamp := time.Now().UnixNano() //纳秒事件戳
 	result, err := db.Exec(insertQuery, messageID, userID, recipientID, messageContent, timestamp, messageType)
