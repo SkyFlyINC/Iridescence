@@ -68,6 +68,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	var useHeartPack bool = true
 	defer func() {
 		if Logined {
+			ClientsLock.Lock()
 			var friends []int
 			jsonprovider.ParseJSON(Clients[userID].UserFriendList, &friends)
 			for _, friendId := range friends {
@@ -79,11 +80,10 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				}
 				logger.Debug("向", friendId, "发送断线消息")
 			}
-			ClientsLock.Lock()
+
 			delete(Clients, userID)
 			ClientsLock.Unlock()
 			logger.Info("用户", userID, "已断开连接")
-
 		}
 		logger.Debug("连接被服务器主动关闭")
 		err := conn.Close()
@@ -648,7 +648,6 @@ func sendJSONToUserWithRlock(userID int, msg interface{}, command string) (bool,
 }
 
 func sendMessageToUser(userID int, message []byte) (bool, error) {
-	ClientsLock.RLock()
 
 	client, ok := Clients[userID]
 	if !ok {
@@ -662,7 +661,6 @@ func sendMessageToUser(userID int, message []byte) (bool, error) {
 		// 处理发送消息失败的情况
 		return false, err
 	}
-	ClientsLock.RUnlock()
 	return true, nil
 }
 func handleGetOfflineMessages(userID int) {
