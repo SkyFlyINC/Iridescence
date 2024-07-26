@@ -531,7 +531,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			jsonprovider.ParseJSON(pre.Content, &req)
 
 			// 从数据库中获取用户数据
-			res, err := dbUtils.GetUserFromDB(userID)
+			res, err := dbUtils.GetUserFromDB(req.UserID)
 			if err != nil {
 				logger.Error("Failed to get user data:", err)
 				return
