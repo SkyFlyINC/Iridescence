@@ -321,7 +321,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			withClientsLock(func() {
 				sendJSONToUserWithRlock(userID, jsonprovider.UserStateEvent{
-					UserID:    userID,
+					UserID:    onlineStateRequest.UserID,
 					UserState: userState,
 				}, configData.Commands.UserStateEvent)
 			})
