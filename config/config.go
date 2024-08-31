@@ -28,6 +28,7 @@ type Commands struct {
 	MessageEvent              string `json:"messageEvent"`
 	UserStateEvent            string `json:"userStateEvent"`
 	GetOfflineMessage         string `json:"getOfflineMessage"`
+	DeleteOfflineMessage      string `json:"deleteOfflineMessage"`
 	GetMessagesWithUser       string `json:"getMessagesWithUser"`
 	ChangeSettings            string `json:"changeSettings"`
 	ChangeAvatar              string `json:"changeAvatar"`
@@ -314,6 +315,7 @@ func getDefaultConfig() Config {
 			MessageEvent:              "messageEvent",
 			UserStateEvent:            "userStateEvent",
 			GetOfflineMessage:         "getOfflineMessage",
+			DeleteOfflineMessage:      "deleteOfflineMessage",
 			GetMessagesWithUser:       "getMessagesWithUser",
 			ChangeSettings:            "changeSettings",
 			ChangeAvatar:              "changeAvatar",

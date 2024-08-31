@@ -611,6 +611,8 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 		case configData.Commands.GetOfflineMessage:
 			handleGetOfflineMessages(userID)
+		case configData.Commands.DeleteOfflineMessage:
+			handleDeleteOfflineMessage(userID)
 		case configData.Commands.GetMessagesWithUser:
 			var req jsonprovider.GetMessagesWithUserRequest
 			jsonprovider.ParseJSON(pre.Content, &req)
@@ -712,6 +714,13 @@ func sendMessageToUser(userID int, message []byte) (bool, error) {
 	}
 	return true, nil
 }
+func handleDeleteOfflineMessage(userID int) {
+	// 删除已读的离线消息
+	_, err := db.Exec("DELETE FROM offlinemessages WHERE receiverID = ?", userID)
+	if err != nil {
+		logger.Error("Failed to delete offline messages:", err)
+	}
+}
 func handleGetOfflineMessages(userID int) {
 	// 从数据库中获取离线消息
 	rows, err := db.Query("SELECT messageID, senderID, receiverID, time, messageBody, messageType FROM offlinemessages WHERE receiverID = ?", userID)
@@ -730,16 +739,11 @@ func handleGetOfflineMessages(userID int) {
 			return
 		}
 		messages = append(messages, message)
+
 	}
 	err = rows.Close()
 	if err != nil {
 		logger.Error("Failed to close rows:", err)
-	}
-
-	// 删除已读的离线消息
-	_, err = db.Exec("DELETE FROM offlinemessages WHERE receiverID = ?", userID)
-	if err != nil {
-		logger.Error("Failed to delete offline messages:", err)
 	}
 
 	// 创建响应
