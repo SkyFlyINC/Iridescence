@@ -155,7 +155,18 @@ func HandleFileDownload(w http.ResponseWriter, r *http.Request) {
 		}
 	}(file)
 
+	// 获取文件信息
+	fileInfo, err := file.Stat()
+	if err != nil {
+		logger.Error("获取文件信息失败: %v", err)
+		http.Error(w, "获取文件信息失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 设置 Content-Length 头部
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 
 	_, err = io.Copy(w, file)
 	if err != nil {
