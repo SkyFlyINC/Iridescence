@@ -58,6 +58,7 @@
     "messageEvent": "messageEvent",
     "userStateEvent": "userStateEvent",
     "getOfflineMessage": "getOfflineMessage",
+    "deleteOfflineMessage": "deleteOfflineMessage",
     "getMessagesWithUser": "getMessagesWithUser",
     "changeSettings": "changeSettings",
     "changeAvatar": "changeAvatar",
